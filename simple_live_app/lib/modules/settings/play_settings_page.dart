@@ -165,8 +165,16 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                           modelPath.isEmpty ? "不内置模型，需用户自行下载并选择" : modelPath,
                       value: label,
                       onTap: () async {
-                        final result = await FilePicker.platform.pickFiles();
-                        final selectedPath = result?.files.single.path;
+                        String? selectedPath;
+                        try {
+                          selectedPath =
+                              await FilePicker.platform.getDirectoryPath(
+                            dialogTitle: "选择字幕模型文件夹",
+                          );
+                        } catch (_) {
+                          final result = await FilePicker.platform.pickFiles();
+                          selectedPath = result?.files.single.path;
+                        }
                         if (selectedPath == null || selectedPath.isEmpty) {
                           return;
                         }
@@ -403,27 +411,28 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
               Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  "蓝奏云、百度网盘镜像链接请查看 README。下面保留 HuggingFace 原始页面，方便核对文件名。",
+                  "选一个档位，下载该档位列出的全部文件，放到同一个文件夹；App 里选择这个文件夹。其他 .weights、非 int8 onnx 和 test_wavs 不用下载。蓝奏云/百度网盘镜像链接后续看 README。",
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               _SubtitleModelTile(
-                title: "高级",
+                title: "高级（高性能桌面）",
                 subtitle:
-                    "Whisper large-v3 int8。需要 encoder、decoder 和 tokens 文件。",
+                    "下载：large-v3-encoder.int8.onnx、large-v3-decoder.int8.onnx、large-v3-tokens.txt。不要下 .weights 或无 int8 的 onnx。",
                 url:
                     "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-large-v3",
               ),
               _SubtitleModelTile(
-                title: "中级",
-                subtitle: "Paraformer zh int8。需要 model、tokens、config 和 am.mvn。",
+                title: "中级（中文直播优先）",
+                subtitle:
+                    "下载：model.int8.onnx、tokens.txt、config.yaml、am.mvn。中文直播优先推荐这个。",
                 url:
                     "https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14",
               ),
               _SubtitleModelTile(
-                title: "甜点级",
+                title: "甜点级（先试这个）",
                 subtitle:
-                    "Streaming Zipformer bilingual zh-en int8。需要 encoder、decoder、joiner、tokens、bpe 文件。",
+                    "下载：encoder-epoch-99-avg-1.int8.onnx、decoder-epoch-99-avg-1.int8.onnx、joiner-epoch-99-avg-1.int8.onnx、tokens.txt、bpe.model、bpe.vocab。",
                 url:
                     "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
               ),
