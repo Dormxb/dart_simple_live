@@ -16,6 +16,10 @@ on:
         required: false
         default: false
         type: boolean
+      build_note:
+        description: "6.1 quota strategy: use GitHub Actions only for macOS/iOS; build Android/Windows/Linux/TV locally"
+        required: false
+        default: "iOS only"
 
 jobs:
   build-ios:
@@ -40,6 +44,11 @@ jobs:
         with:
           flutter-version: "3.41.x"
           cache: true
+
+      - name: Print build strategy
+        run: |
+          echo "GitHub Actions quota strategy: macOS/iOS only. Android, Windows, Linux and Android TV are built locally."
+          echo "Build note: ${{ inputs.build_note }}"
 
       - name: Restore Packages
         run: |

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -148,6 +150,17 @@ class AccountController extends GetxController {
               doDouyinCookieConfig();
             },
           ),
+          if (Platform.isAndroid || Platform.isIOS)
+            ListTile(
+              leading: const Icon(Icons.file_open_outlined),
+              title: const Text("从文件导入 Cookie"),
+              subtitle: const Text("选择电脑传到手机上的 txt/cookie 文件"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                Get.back();
+                await importDouyinCookieFromFile();
+              },
+            ),
           if (DouyinAccountService.instance.hasCookie.value)
             ListTile(
               leading: const Icon(Icons.delete_outline),
@@ -216,6 +229,44 @@ class AccountController extends GetxController {
       return;
     }
     SmartDialog.showToast("已打开抖音 App；搜索所需 Cookie 仍需粘贴完整网页登录 Cookie");
+  }
+
+  Future<void> importDouyinCookieFromFile() async {
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.any,
+        withData: true,
+      );
+      if (picked == null || picked.files.isEmpty) {
+        return;
+      }
+      final file = picked.files.single;
+      String content;
+      if (file.bytes != null) {
+        content = utf8.decode(file.bytes!, allowMalformed: true);
+      } else if (file.path != null && file.path!.isNotEmpty) {
+        content = await File(file.path!).readAsString();
+      } else {
+        SmartDialog.showToast("无法读取所选文件");
+        return;
+      }
+      final input = content.trim();
+      if (input.isEmpty) {
+        SmartDialog.showToast("Cookie 文件内容为空");
+        return;
+      }
+      final cookie = _normalizeDouyinCookieInput(input);
+      DouyinAccountService.instance.setCookie(cookie);
+      douyinCookieCountdownTick.value++;
+      if (_isOnlyDouyinTtwid(cookie)) {
+        SmartDialog.showToast("已导入 ttwid；搜索仍可能需要完整登录 Cookie");
+      } else {
+        SmartDialog.showToast("已从文件导入抖音 Cookie");
+      }
+    } catch (e) {
+      SmartDialog.showToast("导入 Cookie 失败：$e");
+    }
   }
 
   void doDouyinCookieConfig() {

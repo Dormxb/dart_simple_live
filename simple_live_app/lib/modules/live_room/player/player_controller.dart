@@ -441,10 +441,13 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     fullScreenState.value = true;
     if (Platform.isAndroid || Platform.isIOS) {
       //全屏
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: [],
+      );
       if (!isVertical.value) {
         //横屏
-        setLandscapeOrientation();
+        await setLandscapeOrientation();
       }
     } else {
       _windowMaximizedBeforeFullScreen = await windowManager.isMaximized();
@@ -721,7 +724,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     if (await beforeIOS16()) {
       AutoOrientation.landscapeAutoMode();
     } else {
-      SystemChrome.setPreferredOrientations([
+      await SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
@@ -733,7 +736,9 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     if (await beforeIOS16()) {
       AutoOrientation.portraitAutoMode();
     } else {
-      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
     }
   }
 

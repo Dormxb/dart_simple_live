@@ -700,15 +700,28 @@ class DouyinSite implements LiveSite {
   /// - [webRid] 直播间RID
   Future<String> _getWebCookie(String webRid) async {
     final requestHeaders = Map<String, dynamic>.from(await getRequestHeaders());
+    final baseCookie = _getCookieHeaderValue(requestHeaders);
     requestHeaders["Referer"] = "https://live.douyin.com/$webRid";
-    var headResp = await HttpClient.instance.head(
-      "https://live.douyin.com/$webRid",
-      header: requestHeaders,
-    );
+    dynamic headResp;
+    try {
+      headResp = await HttpClient.instance.head(
+        "https://live.douyin.com/$webRid",
+        header: requestHeaders,
+      );
+    } catch (e) {
+      if (baseCookie.isNotEmpty) {
+        _logDebug("获取直播间 Web Cookie 的 HEAD 请求失败，使用已保存 Cookie 继续：$e");
+        return baseCookie;
+      }
+      rethrow;
+    }
     if (headResp.statusCode == 444) {
       throw CoreError("", statusCode: 444);
     }
     var dyCookie = "";
+    if (baseCookie.isNotEmpty) {
+      dyCookie = _ensureCookieEndsWithSemicolon(baseCookie);
+    }
     headResp.headers["set-cookie"]?.forEach((element) {
       var cookie = element.split(";")[0];
       if (cookie.contains("ttwid")) {
@@ -985,28 +998,34 @@ class DouyinSite implements LiveSite {
     //var requlestUrl = await getAbogusUrl(uri.toString());
     var requlestUrl = uri.toString();
     final requestHeaders = await getRequestHeaders();
-    var headResp = await HttpClient.instance.head(
-      'https://live.douyin.com',
-      header: requestHeaders,
-    );
     var dyCookie = "";
-    final savedCookie =
-        requestHeaders["Cookie"] ?? requestHeaders["cookie"] ?? "";
-    if (savedCookie.toString().trim().isNotEmpty) {
-      dyCookie = savedCookie.toString().trim();
-      if (!dyCookie.endsWith(";")) {
-        dyCookie = "$dyCookie;";
-      }
+    final savedCookie = _getCookieHeaderValue(requestHeaders);
+    if (savedCookie.isNotEmpty) {
+      dyCookie = _ensureCookieEndsWithSemicolon(savedCookie);
     }
-    headResp.headers["set-cookie"]?.forEach((element) {
-      var cookie = element.split(";")[0];
-      if (cookie.contains("ttwid")) {
-        dyCookie += "$cookie;";
+    dynamic headResp;
+    try {
+      headResp = await HttpClient.instance.head(
+        'https://live.douyin.com',
+        header: requestHeaders,
+      );
+    } catch (e) {
+      if (dyCookie.isEmpty) {
+        rethrow;
       }
-      if (cookie.contains("__ac_nonce")) {
-        dyCookie += "$cookie;";
-      }
-    });
+      _logDebug("抖音搜索预取 Cookie 的 HEAD 请求失败，使用已保存 Cookie 继续：$e");
+    }
+    if (headResp != null) {
+      headResp.headers["set-cookie"]?.forEach((element) {
+        var cookie = element.split(";")[0];
+        if (cookie.contains("ttwid")) {
+          dyCookie += "$cookie;";
+        }
+        if (cookie.contains("__ac_nonce")) {
+          dyCookie += "$cookie;";
+        }
+      });
+    }
 
     var result = await HttpClient.instance.getJson(
       requlestUrl,
@@ -1048,6 +1067,20 @@ class DouyinSite implements LiveSite {
       items.add(roomItem);
     }
     return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
+  }
+
+  String _getCookieHeaderValue(Map<String, dynamic> requestHeaders) {
+    return (requestHeaders["Cookie"] ?? requestHeaders["cookie"] ?? "")
+        .toString()
+        .trim();
+  }
+
+  String _ensureCookieEndsWithSemicolon(String value) {
+    final cookie = value.trim();
+    if (cookie.isEmpty || cookie.endsWith(";")) {
+      return cookie;
+    }
+    return "$cookie;";
   }
 
   @override

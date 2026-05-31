@@ -162,6 +162,7 @@ TV 下载建议：
 
 - 主 App：`flutter pub get` 通过，`flutter analyze` 通过，`No issues found`。
 - TV App：`flutter pub get` 通过，`flutter analyze` 通过，`No issues found`。
+- 本地已构建：Windows、Android 三个 ABI、Linux zip/deb、Android TV 三个 ABI；macOS / iOS 由 GitHub Actions 手动 workflow 构建，用于节省 Actions 额度。
 - `pubspec.lock` 无改动。
 - 待真实设备继续验证：Android 自动小窗的 Home/返回键边界、关闭小窗后的预览保留、移动端开播提醒、WebDAV 恢复、跨设备 Cookie 同步、虎牙 SC/头条高频直播间表现、TV 弹幕表情显示效果。
 
