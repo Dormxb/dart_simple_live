@@ -199,6 +199,7 @@ class DouyinDanmaku implements LiveDanmaku {
     final imageUrls = spans
         .where((item) => item.isImage)
         .map((item) => item.imageUrl!.trim())
+        .toSet()
         .toList();
     final message = _buildChatMessageText(chatMessage, spans);
     return LiveMessage(
@@ -256,8 +257,7 @@ class DouyinDanmaku implements LiveDanmaku {
         buffer.write(span.text);
       }
     }
-    final text = buffer.toString().trim();
-    return text.isEmpty ? chatMessage.content : text;
+    return buffer.toString().trim();
   }
 
   List<LiveMessageSpan> _extractRtfSpans(ChatMessage chatMessage) {
@@ -266,15 +266,6 @@ class DouyinDanmaku implements LiveDanmaku {
       return spans;
     }
     for (final piece in chatMessage.rtfContent.piecesList) {
-      if (piece.stringValue.trim().isNotEmpty) {
-        _appendTextWithEmojiFallback(spans, piece.stringValue);
-      }
-      if (piece.hasPatternRefValue()) {
-        final pattern = piece.patternRefValue.defaultPattern.trim();
-        if (pattern.isNotEmpty) {
-          _appendTextWithEmojiFallback(spans, pattern);
-        }
-      }
       if (piece.hasImageValue() && piece.imageValue.hasImage()) {
         final imageUrl = _extractImageUrl(piece.imageValue.image);
         if (imageUrl != null) {
@@ -284,6 +275,15 @@ class DouyinDanmaku implements LiveDanmaku {
         final fallback = _extractImageFallbackText(piece.imageValue.image);
         if (fallback != null) {
           _appendTextWithEmojiFallback(spans, fallback);
+        }
+      }
+      if (piece.stringValue.trim().isNotEmpty) {
+        _appendTextWithEmojiFallback(spans, piece.stringValue);
+      }
+      if (piece.hasPatternRefValue()) {
+        final pattern = piece.patternRefValue.defaultPattern.trim();
+        if (pattern.isNotEmpty) {
+          _appendTextWithEmojiFallback(spans, pattern);
         }
       }
     }

@@ -460,6 +460,8 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
         await windowManager.center();
         await Future.delayed(const Duration(milliseconds: 240));
       }
+      await _applyWindowsFullScreenChrome();
+      await Future.delayed(const Duration(milliseconds: 16));
       await windowManager.setFullScreen(true);
       await _waitForWindowsFullScreenState(true);
       await _applyWindowsFullScreenChrome();
@@ -500,9 +502,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     } else {
       await windowManager.setFullScreen(false);
       await _waitForWindowsFullScreenState(false);
-      await windowManager.setResizable(true);
-      await windowManager.setHasShadow(true);
-      await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+      await _restoreWindowsWindowChrome();
       await _refreshWindowsWindowBounds();
       if (_windowMaximizedBeforeFullScreen) {
         await windowManager.maximize();
@@ -603,6 +603,20 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
   }
 
   ///小窗模式()
+  Future<void> _restoreWindowsWindowChrome() async {
+    if (!Platform.isWindows) {
+      return;
+    }
+
+    try {
+      await windowManager.setResizable(true);
+      await windowManager.setHasShadow(true);
+      await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+    } catch (e) {
+      Log.logPrint(e);
+    }
+  }
+
   Future<void> enterSmallWindow() async {
     if (Platform.isAndroid || Platform.isIOS || smallWindowState.value) {
       return;
