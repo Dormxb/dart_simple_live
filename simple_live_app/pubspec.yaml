@@ -8,6 +8,9 @@ environment:
 dependencies:
   simple_live_core:
     path: ../simple_live_core
+  dart_quickjs:
+    git:
+      url: https://github.com/xiaoyaocz/dart_quickjs
   # 图标
   cupertino_icons: ^1.0.8
   remixicon: ^1.4.1 #Remix图标

@@ -4,10 +4,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:simple_live_core/simple_live_core.dart';
 import 'package:simple_live_app/app/controller/base_controller.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/event_bus.dart';
 import 'package:simple_live_app/app/log.dart';
+import 'package:simple_live_app/app/platform_utils.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
@@ -63,6 +65,7 @@ class FollowUserController extends BasePageController<FollowUser> {
   void onInit() {
     pageSize = AppSettingsController.instance.followPageSize.value;
     _restoreGroupSelection();
+    unawaited(refreshData(forceStatus: false));
     onUpdatedIndexedStream = EventBus.instance.listen(
       EventBus.kBottomNavigationBarClicked,
       (index) {
@@ -89,7 +92,10 @@ class FollowUserController extends BasePageController<FollowUser> {
   @override
   Future refreshData({bool forceStatus = true}) async {
     pageSize = AppSettingsController.instance.followPageSize.value;
-    await FollowService.instance.loadData(forceUpdateStatus: forceStatus);
+    await FollowService.instance.loadData(
+      updateStatus: forceStatus,
+      forceUpdateStatus: forceStatus,
+    );
     updateTagList();
     filterData();
   }
@@ -140,7 +146,8 @@ class FollowUserController extends BasePageController<FollowUser> {
       pageSize = effectivePageSize;
       AppSettingsController.instance.setFollowPageSize(effectivePageSize);
     }
-    totalDisplayPages.value = (items.length / effectivePageSize).ceil().clamp(1, items.length);
+    totalDisplayPages.value =
+        (items.length / effectivePageSize).ceil().clamp(1, items.length);
     if (currentDisplayPage.value > totalDisplayPages.value) {
       currentDisplayPage.value = totalDisplayPages.value;
     }
@@ -156,14 +163,26 @@ class FollowUserController extends BasePageController<FollowUser> {
     _scrollToCurrentRoom(currentIndex, list.length);
   }
 
-  List<FollowUser> get currentPageNormalTargets =>
-      list.where((item) => !item.isSpecialFollow).toList();
+  List<FollowUser> get currentPageTargets => list.toList();
+
+  String get currentRefreshScopeKey {
+    final mode =
+        groupMode.value == FollowGroupMode.platform ? "platform" : "live";
+    return "${currentDisplayPage.value}:${selectedGroupId.value}:$mode";
+  }
 
   Future<void> refreshCurrentPageStatus() async {
-    final targets = paginationEnabled.value
-        ? currentPageNormalTargets
-        : _filterBySelectedGroup().where((item) => !item.isSpecialFollow);
-    await FollowService.instance.refreshSelectedStatus(targets, force: true);
+    final pageItems =
+        paginationEnabled.value ? currentPageTargets : _filterBySelectedGroup();
+    await FollowService.instance.refreshSelectedStatus(
+      FollowService.instance.buildPageFrontTargets(pageItems),
+      force: true,
+      scope: FollowRefreshScope.page(
+        scopeKey: FollowService.instance.buildPageRefreshScopeKey(
+          currentRefreshScopeKey,
+        ),
+      ),
+    );
     filterData();
   }
 
@@ -172,12 +191,14 @@ class FollowUserController extends BasePageController<FollowUser> {
       _filterBySelectedGroup(),
       includeAllNormals: true,
       force: true,
+      scope: const FollowRefreshScope.all(),
     );
     filterData();
   }
 
   void goToNextPage() {
-    if (!paginationEnabled.value || currentDisplayPage.value >= totalDisplayPages.value) {
+    if (!paginationEnabled.value ||
+        currentDisplayPage.value >= totalDisplayPages.value) {
       return;
     }
     currentDisplayPage.value += 1;
@@ -197,7 +218,8 @@ class FollowUserController extends BasePageController<FollowUser> {
     if (currentKey.isEmpty) {
       return -1;
     }
-    return items.indexWhere((item) => "${item.siteId}_${item.roomId}" == currentKey);
+    return items
+        .indexWhere((item) => "${item.siteId}_${item.roomId}" == currentKey);
   }
 
   void _scrollToCurrentRoom(int index, int visibleCount) {
@@ -360,6 +382,9 @@ class FollowUserController extends BasePageController<FollowUser> {
   }
 
   void toggleMultiSelectMode() {
+    if (!PlatformUtils.supportsInlineMultiRoom) {
+      return;
+    }
     multiSelectMode.value = !multiSelectMode.value;
     if (!multiSelectMode.value) {
       selectedMultiRoomKeys.clear();
@@ -367,6 +392,9 @@ class FollowUserController extends BasePageController<FollowUser> {
   }
 
   void toggleMultiRoomItem(FollowUser item) {
+    if (!PlatformUtils.supportsInlineMultiRoom) {
+      return;
+    }
     if (item.liveStatus.value != 2) {
       SmartDialog.showToast("只能选择直播中的关注");
       return;
@@ -379,6 +407,10 @@ class FollowUserController extends BasePageController<FollowUser> {
   }
 
   void openSelectedMultiRooms() async {
+    if (!PlatformUtils.supportsInlineMultiRoom) {
+      SmartDialog.showToast("当前移动端版本已关闭多开同屏");
+      return;
+    }
     final selected = list
         .where((item) =>
             selectedMultiRoomKeys.contains(item.id) &&

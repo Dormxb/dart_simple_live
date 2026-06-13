@@ -34,6 +34,8 @@ class SyncService extends GetxService {
   final ipAddress = "".obs;
   final httpRunning = false.obs;
   final httpErrorMsg = "".obs;
+  final udpRunning = false.obs;
+  final udpErrorMsg = "".obs;
 
   var deviceId = "";
 
@@ -58,27 +60,46 @@ class SyncService extends GetxService {
   }
 
   void listenUDP() async {
-    udp = await UDP.bind(Endpoint.any(port: const Port(udpPort)));
-    udp!.asStream().listen((datagram) {
-      final str = String.fromCharCodes(datagram!.data);
-      Log.i("Received: $str from ${datagram.address}:${datagram.port}");
-      if (str.startsWith('{') && str.endsWith('}')) {
-        final data = json.decode(str);
-        if (data["type"] == "hello") {
-          if (httpRunning.value) {
-            sendInfo();
+    try {
+      udp = await UDP.bind(Endpoint.any(port: const Port(udpPort)));
+      udpRunning.value = true;
+      udpErrorMsg.value = "";
+      udp!.asStream().listen(
+        (datagram) {
+          final str = String.fromCharCodes(datagram!.data);
+          Log.i("Received: $str from ${datagram.address}:${datagram.port}");
+          if (str.startsWith('{') && str.endsWith('}')) {
+            final data = json.decode(str);
+            if (data["type"] == "hello") {
+              if (httpRunning.value) {
+                sendInfo();
+              }
+              return;
+            }
+          } else if (str == 'Who is SimpleLive?') {
+            if (httpRunning.value) {
+              sendInfo();
+            }
           }
-          return;
-        }
-      } else if (str == 'Who is SimpleLive?') {
-        if (httpRunning.value) {
-          sendInfo();
-        }
-      }
-    });
+        },
+        onError: (Object e, StackTrace stackTrace) {
+          udpRunning.value = false;
+          udpErrorMsg.value = _formatPortError(e, udpPort, "UDP发现服务");
+          Log.e("UDP discovery stream failed: $e", stackTrace);
+        },
+      );
+    } catch (e) {
+      udpRunning.value = false;
+      udpErrorMsg.value = _formatPortError(e, udpPort, "UDP发现服务");
+      Log.e("UDP discovery bind failed: $e", StackTrace.current);
+    }
   }
 
   void sendInfo() async {
+    if (udp == null || !udpRunning.value) {
+      Log.w("Skip UDP info broadcast: ${udpErrorMsg.value}");
+      return;
+    }
     final name = await getDeviceName();
     final data = {
       "id": deviceId,
@@ -159,9 +180,30 @@ class SyncService extends GetxService {
 
       Log.d('Serving at http://${ipAddress.value}:${server!.port}');
     } catch (e) {
-      httpErrorMsg.value = e.toString();
-      Log.logPrint(e);
+      httpRunning.value = false;
+      httpErrorMsg.value = _formatPortError(e, httpPort, "HTTP同步服务");
+      Log.e("HTTP sync server bind failed: $e", StackTrace.current);
     }
+  }
+
+  String get lanErrorMsg {
+    final messages = <String>[
+      if (httpErrorMsg.value.trim().isNotEmpty) httpErrorMsg.value,
+      if (udpErrorMsg.value.trim().isNotEmpty) udpErrorMsg.value,
+    ];
+    return messages.join("；");
+  }
+
+  String _formatPortError(Object error, int port, String serviceName) {
+    final text = error.toString();
+    final lower = text.toLowerCase();
+    if (text.contains("10048") ||
+        lower.contains("address already in use") ||
+        lower.contains("failed to create server socket") ||
+        lower.contains("only one usage of each socket address")) {
+      return "$port 端口已被占用，请关闭其他 Simple Live / TV-Windows 窗口后重试";
+    }
+    return "$serviceName启动失败：$text";
   }
 
   shelf.Response _helloRequest(shelf.Request request) {
@@ -487,7 +529,9 @@ class SyncService extends GetxService {
   void onClose() {
     Log.d('SyncService close');
     udp?.close();
+    udpRunning.value = false;
     server?.close(force: true);
+    httpRunning.value = false;
     super.onClose();
   }
 }

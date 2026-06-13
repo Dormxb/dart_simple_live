@@ -23,8 +23,6 @@ class DouyinSite implements LiveSite {
   static const String kDefaultReferer = "https://live.douyin.com";
 
   static const String kDefaultAuthority = "live.douyin.com";
-  static DateTime? _lastRoomDetailRequestAt;
-  static Future<void> _roomDetailThrottle = Future<void>.value();
   static const Duration _webCookieCacheTtl = Duration(minutes: 5);
   static final Map<String, String> _webCookieCache = <String, String>{};
   static final Map<String, DateTime> _webCookieCacheAt = <String, DateTime>{};
@@ -521,23 +519,6 @@ class DouyinSite implements LiveSite {
     } finally {
       _logElapsed("getRoomDetail($roomId)", stopwatch);
     }
-  }
-
-  Future<void> _throttleRoomDetailRequest() async {
-    final next = _roomDetailThrottle.then((_) async {
-      final lastRequestAt = _lastRoomDetailRequestAt;
-      final now = DateTime.now();
-      if (lastRequestAt != null) {
-        final elapsed = now.difference(lastRequestAt);
-        const minInterval = Duration(milliseconds: 1200);
-        if (elapsed < minInterval) {
-          await Future.delayed(minInterval - elapsed);
-        }
-      }
-      _lastRoomDetailRequestAt = DateTime.now();
-    });
-    _roomDetailThrottle = next.catchError((_) {});
-    await next;
   }
 
   /// 通过roomId获取直播间信息
@@ -1203,7 +1184,6 @@ class DouyinSite implements LiveSite {
 
   @override
   Future<bool> getLiveStatus({required String roomId}) async {
-    await _throttleRoomDetailRequest();
     try {
       if (roomId.length <= 16) {
         final data = await _getRoomDataByApi(roomId);

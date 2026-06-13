@@ -55,7 +55,7 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
                 AppStyle.divider,
                 Obx(
                   () => SettingsMenu<int>(
-                    title: "鍏虫敞姣忛〉鏁伴噺",
+                    title: "关注每页数量",
                     value: controller.followPageSize.value,
                     valueMap: const {
                       50: "50",

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -84,11 +85,17 @@ class MultiRoomPlayerController extends GetxController {
     liveStatus.value = false;
     try {
       await player.stop();
+      Log.i("多屏同播开始加载房间：${item.site.id}/${item.roomId}");
       final roomDetail =
           await item.site.liveSite.getRoomDetail(roomId: item.roomId);
       if (_disposed) {
         return;
       }
+      Log.i(
+        "多屏同播房间详情：${item.site.id}/${item.roomId} "
+        "status=${roomDetail.status} record=${roomDetail.isRecord} "
+        "title=${roomDetail.title}",
+      );
       detail.value = roomDetail;
       liveStatus.value = roomDetail.status || roomDetail.isRecord;
       if (!liveStatus.value) {
@@ -117,7 +124,9 @@ class MultiRoomPlayerController extends GetxController {
     if (_qualities.isEmpty) {
       throw Exception("无法读取播放清晰度");
     }
-    final qualityLevel = AppSettingsController.instance.qualityLevel.value;
+    final qualityLevel = Platform.isAndroid
+        ? 0
+        : AppSettingsController.instance.qualityLevel.value;
     if (qualityLevel == 2) {
       _qualityIndex = 0;
     } else if (qualityLevel == 0) {
@@ -126,6 +135,10 @@ class MultiRoomPlayerController extends GetxController {
       _qualityIndex = (_qualities.length / 2).floor();
     }
     qualityInfo.value = _qualities[_qualityIndex].quality;
+    Log.i(
+      "多屏同播清晰度：${item.site.id}/${item.roomId} "
+      "selected=${qualityInfo.value} index=$_qualityIndex total=${_qualities.length}",
+    );
   }
 
   Future<void> _loadPlayUrls(LiveRoomDetail roomDetail) async {
@@ -141,6 +154,11 @@ class MultiRoomPlayerController extends GetxController {
     _lineIndex = 0;
     _mediaErrorRetryCount = 0;
     lineInfo.value = "线路${_lineIndex + 1}";
+    Log.i(
+      "多屏同播播放地址：${item.site.id}/${item.roomId} "
+      "quality=${qualityInfo.value} urls=${_playUrls.length} "
+      "headers=${_playHeaders?.keys.join(',') ?? ''}",
+    );
   }
 
   Future<void> _openCurrentUrl() async {
@@ -148,6 +166,10 @@ class MultiRoomPlayerController extends GetxController {
       throw Exception("播放线路为空");
     }
     errorText.value = "";
+    Log.i(
+      "多屏同播打开播放器：${item.site.id}/${item.roomId} "
+      "line=${_lineIndex + 1}/${_playUrls.length} muted=${muted.value}",
+    );
     unawaited(
       player
           .open(Media(_playUrls[_lineIndex], httpHeaders: _playHeaders))
@@ -173,6 +195,10 @@ class MultiRoomPlayerController extends GetxController {
       return;
     }
     if (_lineIndex < _playUrls.length - 1) {
+      Log.w(
+        "多屏同播播放结束，切换线路：${item.site.id}/${item.roomId} "
+        "from=${_lineIndex + 1}",
+      );
       _lineIndex += 1;
       _mediaErrorRetryCount = 0;
       lineInfo.value = "线路${_lineIndex + 1}";
@@ -180,6 +206,7 @@ class MultiRoomPlayerController extends GetxController {
       return;
     }
     errorText.value = "播放已结束";
+    Log.w("多屏同播播放结束：${item.site.id}/${item.roomId}");
   }
 
   Future<void> _handleMediaError(String error) async {
@@ -188,6 +215,10 @@ class MultiRoomPlayerController extends GetxController {
     }
     if (_mediaErrorRetryCount < 2) {
       _mediaErrorRetryCount += 1;
+      Log.w(
+        "多屏同播播放错误，重试当前线路：${item.site.id}/${item.roomId} "
+        "line=${_lineIndex + 1} retry=$_mediaErrorRetryCount error=$error",
+      );
       await Future<void>.delayed(const Duration(seconds: 1));
       if (!_disposed) {
         await _openCurrentUrl();
@@ -195,6 +226,10 @@ class MultiRoomPlayerController extends GetxController {
       return;
     }
     if (_lineIndex < _playUrls.length - 1) {
+      Log.w(
+        "多屏同播播放错误，切换线路：${item.site.id}/${item.roomId} "
+        "from=${_lineIndex + 1} error=$error",
+      );
       _lineIndex += 1;
       _mediaErrorRetryCount = 0;
       lineInfo.value = "线路${_lineIndex + 1}";
@@ -202,6 +237,10 @@ class MultiRoomPlayerController extends GetxController {
       return;
     }
     errorText.value = "播放失败：$error";
+    Log.e(
+      "多屏同播播放失败：${item.site.id}/${item.roomId} $error",
+      StackTrace.current,
+    );
   }
 
   Future<void> refreshRoom() async {

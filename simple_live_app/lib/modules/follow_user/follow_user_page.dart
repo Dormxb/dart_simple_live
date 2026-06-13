@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
+import 'package:simple_live_app/app/platform_utils.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
@@ -65,33 +66,35 @@ class FollowUserPage extends GetView<FollowUserController> {
               ),
             ),
           ),
-          Obx(
-            () => TextButton.icon(
-              onPressed: controller.multiSelectMode.value
-                  ? controller.openSelectedMultiRooms
-                  : controller.toggleMultiSelectMode,
-              icon: Icon(
-                controller.multiSelectMode.value
-                    ? Icons.grid_view
-                    : Icons.grid_view_outlined,
-              ),
-              label: Text(
-                controller.multiSelectMode.value
-                    ? "开始同屏(${controller.selectedMultiRoomKeys.length})"
-                    : "多开同屏",
-              ),
-            ),
-          ),
-          Obx(
-            () => Visibility(
-              visible: controller.multiSelectMode.value,
-              child: IconButton(
-                tooltip: "取消多选",
-                onPressed: controller.toggleMultiSelectMode,
-                icon: const Icon(Icons.close),
+          if (PlatformUtils.supportsInlineMultiRoom) ...[
+            Obx(
+              () => TextButton.icon(
+                onPressed: controller.multiSelectMode.value
+                    ? controller.openSelectedMultiRooms
+                    : controller.toggleMultiSelectMode,
+                icon: Icon(
+                  controller.multiSelectMode.value
+                      ? Icons.grid_view
+                      : Icons.grid_view_outlined,
+                ),
+                label: Text(
+                  controller.multiSelectMode.value
+                      ? "开始同屏(${controller.selectedMultiRoomKeys.length})"
+                      : "多开同屏",
+                ),
               ),
             ),
-          ),
+            Obx(
+              () => Visibility(
+                visible: controller.multiSelectMode.value,
+                child: IconButton(
+                  tooltip: "取消多选",
+                  onPressed: controller.toggleMultiSelectMode,
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+          ],
           PopupMenuButton(
             itemBuilder: (context) {
               return const [
@@ -196,11 +199,14 @@ class FollowUserPage extends GetView<FollowUserController> {
                   child: Padding(
                     padding: AppStyle.edgeInsetsH8.copyWith(top: 8),
                     child: Text(
-                      "当前页刷新只补当前页普通关注，特别关注始终全量优先刷新。",
+                      "当前页刷新只处理本页目标；刷新全部会覆盖当前分组全部关注。",
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ),
+              ),
+              Obx(
+                () => _buildRefreshProgress(context),
               ),
               Padding(
                 padding: AppStyle.edgeInsetsH8,
@@ -266,9 +272,12 @@ class FollowUserPage extends GetView<FollowUserController> {
                   child: PageGridView(
                     padding: const EdgeInsets.only(bottom: 96.0),
                     crossAxisSpacing: 12,
+                    mainAxisSpacing: 8,
+                    mainAxisExtent: 92,
+                    useFixedGrid: true,
                     crossAxisCount: count,
                     pageController: controller,
-                    firstRefresh: true,
+                    firstRefresh: false,
                     showPCRefreshButton: false,
                     itemBuilder: (_, i) {
                       var item = controller.list[i];
@@ -284,7 +293,8 @@ class FollowUserPage extends GetView<FollowUserController> {
                           controller.removeItem(item);
                         },
                         onTap: () {
-                          if (controller.multiSelectMode.value) {
+                          if (PlatformUtils.supportsInlineMultiRoom &&
+                              controller.multiSelectMode.value) {
                             controller.toggleMultiRoomItem(item);
                             return;
                           }
@@ -365,6 +375,47 @@ class FollowUserPage extends GetView<FollowUserController> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefreshProgress(BuildContext context) {
+    final progress = FollowService.instance.refreshProgress.value;
+    if (!progress.active) {
+      return const SizedBox.shrink();
+    }
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: AppStyle.edgeInsetsH8.copyWith(top: 4, bottom: 4),
+      child: Material(
+        color: colorScheme.surfaceContainerHighest.withAlpha(
+          progress.automatic ? 180 : 220,
+        ),
+        borderRadius: AppStyle.radius8,
+        child: Padding(
+          padding: AppStyle.edgeInsetsA12,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      progress.stage,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  Text("${progress.current}/${progress.total}"),
+                ],
+              ),
+              AppStyle.vGap8,
+              LinearProgressIndicator(
+                value: progress.total > 0 ? progress.percent : null,
+                minHeight: 6,
+              ),
+            ],
           ),
         ),
       ),

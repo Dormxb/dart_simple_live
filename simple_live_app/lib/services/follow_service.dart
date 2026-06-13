@@ -48,6 +48,7 @@ class FollowService extends GetxService {
 
   /// 是否正在更新
   var updating = false.obs;
+  var refreshProgress = const FollowRefreshProgress.idle().obs;
 
   Timer? updateTimer;
   final Set<String> _liveNotifySentIds = <String>{};
@@ -56,6 +57,7 @@ class FollowService extends GetxService {
   DateTime? _lastUpdateStatusStartedAt;
   DateTime? _douyinLimitedUntil;
   int _douyinLimitGeneration = 0;
+  bool _douyinSoftLimited = false;
 
   @override
   void onInit() {
@@ -171,6 +173,7 @@ class FollowService extends GetxService {
     getAllTagList();
     if (list.isEmpty) {
       updating.value = false;
+      _resetRefreshProgress();
       followList.assignAll(list);
       return;
     }
@@ -240,7 +243,8 @@ class FollowService extends GetxService {
     final currentItems = <FollowUser>[];
     final others = <FollowUser>[];
     for (final item in items) {
-      if (item.id == currentKey) {
+      final itemKey = "${item.siteId}_${item.roomId}";
+      if (itemKey == currentKey) {
         currentItems.add(item);
       } else {
         others.add(item);
@@ -257,15 +261,25 @@ class FollowService extends GetxService {
         now.difference(lastStartedAt) < updateStatusCooldown) {
       Log.logPrint("关注状态刷新过于频繁，已跳过本次网络刷新");
       updating.value = false;
+      _resetRefreshProgress();
       filterData();
       return;
     }
     _lastUpdateStatusStartedAt = now;
     final generation = ++_updateGeneration;
+    final automatic = !force;
     if (updating.value) {
       Log.logPrint("已有关注状态刷新任务，取消旧任务并启动新任务");
     }
     updating.value = true;
+    _setRefreshProgress(
+      active: true,
+      automatic: automatic,
+      scopeKey: "all",
+      stage: "正在刷新关注状态",
+      current: 0,
+      total: followList.length,
+    );
 
     var concurrency = getOptimalConcurrency(totalCount: followList.length);
     final policy = BulkDataImportService.policyForCount(followList.length);
@@ -274,43 +288,89 @@ class FollowService extends GetxService {
       "开始更新关注状态，并发数: $concurrency，总数: ${followList.length}，规模: ${policy.label}",
     );
 
-    // 按平台交错排列，避免单一平台阻塞
-    var interleavedList = deprioritizeCurrentRoom(
-      interleaveByPlatform(followList),
-    );
+    try {
+      // 按平台交错排列，避免单一平台阻塞
+      var interleavedList = deprioritizeCurrentRoom(
+        interleaveByPlatform(followList),
+      );
 
-    // 创建任务队列
-    var taskQueue = Queue<FollowUser>.from(interleavedList);
+      // 创建任务队列
+      var taskQueue = Queue<FollowUser>.from(interleavedList);
+      final douyinTargetCount = interleavedList
+          .where((item) => item.siteId == Constant.kDouyin)
+          .length;
+      final douyinLimiter = douyinTargetCount > 0
+          ? DouyinFollowRefreshLimiter.forTargetCount(douyinTargetCount)
+          : null;
 
-    // 工作函数 - 持续从队列中取任务执行
-    Future<void> worker(int workerId) async {
-      while (taskQueue.isNotEmpty) {
-        if (generation != _updateGeneration) {
-          return;
+      // 工作函数 - 持续从队列中取任务执行
+      var completed = 0;
+
+      Future<void> worker(int workerId) async {
+        while (taskQueue.isNotEmpty) {
+          if (generation != _updateGeneration) {
+            return;
+          }
+          var item = taskQueue.removeFirst();
+          await updateLiveStatus(
+            item,
+            generation: generation,
+            douyinLimiter: douyinLimiter,
+            workerIndex: workerId,
+          );
+          if (generation != _updateGeneration) {
+            return;
+          }
+          completed++;
+          _setRefreshProgress(
+            active: true,
+            automatic: automatic,
+            scopeKey: "all",
+            stage: "正在刷新关注状态",
+            current: completed,
+            total: interleavedList.length,
+          );
         }
-        var item = taskQueue.removeFirst();
-        await updateLiveStatus(item, generation: generation);
+      }
+
+      // 启动固定数量的并发 worker
+      var workers = <Future>[];
+      for (var i = 0; i < concurrency; i++) {
+        workers.add(worker(i));
+      }
+
+      await Future.wait(workers);
+
+      if (generation != _updateGeneration) {
+        return;
+      }
+      if (douyinLimiter != null) {
+        final summary = douyinLimiter.finish(douyinTargetCount);
+        Log.logPrint(
+          "抖音关注刷新总结 scope=all target=${summary.targetCount} "
+          "startConcurrency=${summary.initialConcurrency} "
+          "startInterval=${summary.initialInterval.inMilliseconds}ms "
+          "finalInterval=${summary.finalInterval.inMilliseconds}ms "
+          "success=${summary.successCount} limited=${summary.limitedCount} "
+          "cooldown=${summary.cooledDown} elapsed=${summary.elapsed.inMilliseconds}ms",
+        );
+      }
+      filterData();
+      Log.logPrint("关注状态更新完成");
+    } finally {
+      if (generation == _updateGeneration) {
+        updating.value = false;
+        _resetRefreshProgress();
       }
     }
-
-    // 启动固定数量的并发 worker
-    var workers = <Future>[];
-    for (var i = 0; i < concurrency; i++) {
-      workers.add(worker(i));
-    }
-
-    await Future.wait(workers);
-
-    if (generation != _updateGeneration) {
-      return;
-    }
-    filterData();
-    updating.value = false;
-
-    Log.logPrint("关注状态更新完成");
   }
 
-  Future updateLiveStatus(FollowUser item, {int? generation}) async {
+  Future updateLiveStatus(
+    FollowUser item, {
+    int? generation,
+    DouyinFollowRefreshLimiter? douyinLimiter,
+    int workerIndex = 0,
+  }) async {
     final previousStatus = item.liveStatus.value;
     final notifyReady = _liveNotifyReadyIds.contains(item.id);
     try {
@@ -319,21 +379,20 @@ class FollowService extends GetxService {
         item.liveStartTime = null;
         return;
       }
+      if (item.siteId == Constant.kDouyin && douyinLimiter != null) {
+        await douyinLimiter.beforeRequest(workerIndex);
+      }
       var site = Sites.allSites[item.siteId]!;
-      // 先只查状态
+      // 手动/自动关注刷新统一走状态优先，不在主链路同步补详情。
       var isLiving = await site.liveSite.getLiveStatus(roomId: item.roomId);
       if (generation != null && generation != _updateGeneration) {
         return;
       }
+      if (item.siteId == Constant.kDouyin && douyinLimiter != null) {
+        douyinLimiter.onSuccess();
+      }
       item.liveStatus.value = isLiving ? 2 : 1;
-      if (item.liveStatus.value == 2) {
-        // 只有正在直播时才查详细信息
-        var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
-        if (generation != null && generation != _updateGeneration) {
-          return;
-        }
-        item.liveStartTime = detail.showTime;
-      } else {
+      if (item.liveStatus.value != 2) {
         item.liveStartTime = null;
         _liveNotifySentIds.remove(item.id);
       }
@@ -351,7 +410,16 @@ class FollowService extends GetxService {
         return;
       }
       if (_isDouyinLimited(item, e)) {
-        _handleDouyinLimited(generation: generation);
+        if (douyinLimiter != null) {
+          final hardLimited = douyinLimiter.onLimited();
+          if (hardLimited) {
+            _handleDouyinLimited(generation: generation);
+          } else {
+            _handleDouyinSoftLimited(generation: generation);
+          }
+        } else {
+          _handleDouyinLimited(generation: generation);
+        }
       }
       Log.logPrint(e);
       item.liveStatus.value = 0;
@@ -374,6 +442,7 @@ class FollowService extends GetxService {
   }
 
   void _handleDouyinLimited({int? generation}) {
+    _douyinSoftLimited = false;
     _douyinLimitedUntil = DateTime.now().add(const Duration(minutes: 10));
     if (generation != null && _douyinLimitGeneration == generation) {
       return;
@@ -381,6 +450,17 @@ class FollowService extends GetxService {
     _douyinLimitGeneration = generation ?? _updateGeneration;
     Log.w("抖音访问受限，本轮后续抖音关注刷新将跳过，10 分钟后再尝试");
     SmartDialog.showToast("抖音访问受限，请稍后再试");
+  }
+
+  void _handleDouyinSoftLimited({int? generation}) {
+    if (generation != null &&
+        _douyinLimitGeneration == generation &&
+        _douyinSoftLimited) {
+      return;
+    }
+    _douyinLimitGeneration = generation ?? _updateGeneration;
+    _douyinSoftLimited = true;
+    Log.w("抖音访问接近限制，已暂停 15 秒并自动降速后继续刷新");
   }
 
   int compareFollowUsers(FollowUser a, FollowUser b) {
@@ -433,85 +513,197 @@ class FollowService extends GetxService {
     ]);
   }
 
+  List<FollowUser> buildPageFrontTargets(Iterable<FollowUser> pageItems) {
+    return _distinctFollowUsers(sortFollowUsers(pageItems));
+  }
+
+  String buildPageRefreshScopeKey(String pageKey) => "page:$pageKey";
+
   Future<void> refreshSelectedStatus(
     Iterable<FollowUser> normalTargets, {
     bool includeAllNormals = false,
     bool force = true,
+    FollowRefreshScope? scope,
   }) {
-    final targets = _buildRefreshTargets(
-      normalTargets,
-      includeAllNormals: includeAllNormals,
+    final resolvedScope = scope ??
+        FollowRefreshScope.all(
+          automatic: !force,
+        );
+    final targets = resolvedScope.includeAllNormals
+        ? _buildRefreshTargets(
+            normalTargets,
+            includeAllNormals: includeAllNormals,
+          )
+        : buildPageFrontTargets(normalTargets);
+    return _refreshStatusTargets(
+      targets,
+      force: force,
+      scope: resolvedScope,
     );
-    return _refreshStatusTargets(targets, force: force);
   }
 
   Future<void> _refreshStatusTargets(
     List<FollowUser> targets, {
     bool force = false,
+    required FollowRefreshScope scope,
   }) async {
     final now = DateTime.now();
     final lastStartedAt = _lastUpdateStatusStartedAt;
     if (!force &&
         lastStartedAt != null &&
         now.difference(lastStartedAt) < updateStatusCooldown) {
-      Log.logPrint("????????????????????");
+      Log.logPrint("关注状态刷新仍在冷却中，跳过本次自动刷新");
       updating.value = false;
+      _resetRefreshProgress();
       filterData();
+      return;
+    }
+    if (updating.value &&
+        refreshProgress.value.active &&
+        refreshProgress.value.scopeKey == scope.scopeKey &&
+        !refreshProgress.value.completed) {
+      Log.logPrint("同一刷新任务仍在进行，复用当前进度: ${scope.scopeKey}");
       return;
     }
     _lastUpdateStatusStartedAt = now;
     final generation = ++_updateGeneration;
+    final automatic = scope.automatic;
     if (updating.value) {
-      Log.logPrint("??????????????????????");
+      Log.logPrint("新的关注刷新任务已启动，旧任务将按 generation 自动退出: ${scope.scopeKey}");
     }
     updating.value = true;
+    _setRefreshProgress(
+      active: true,
+      automatic: automatic,
+      scopeKey: scope.scopeKey,
+      stage: scope.stage,
+      current: 0,
+      total: targets.length,
+    );
 
     if (targets.isEmpty) {
       updating.value = false;
+      _resetRefreshProgress();
       filterData();
       return;
     }
 
-    var concurrency = getOptimalConcurrency(totalCount: targets.length);
-    final policy = BulkDataImportService.policyForCount(targets.length);
+    try {
+      var concurrency = getOptimalConcurrency(totalCount: targets.length);
+      final policy = BulkDataImportService.policyForCount(targets.length);
 
-    Log.logPrint(
-      "???????????? $concurrency???: ${targets.length}???: ${policy.label}",
-    );
+      Log.logPrint(
+        "关注刷新开始，并发数: $concurrency，目标数: ${targets.length}，策略: ${policy.label}",
+      );
 
-    final specials = targets.where((item) => item.isSpecialFollow).toList();
-    final normals = targets.where((item) => !item.isSpecialFollow).toList();
-    final taskQueue = Queue<FollowUser>.from(
-      deprioritizeCurrentRoom([
-        ...interleaveByPlatform(specials),
-        ...interleaveByPlatform(normals),
-      ]),
-    );
+      final specials = targets.where((item) => item.isSpecialFollow).toList();
+      final normals = targets.where((item) => !item.isSpecialFollow).toList();
+      final taskQueue = Queue<FollowUser>.from(
+        deprioritizeCurrentRoom([
+          ...interleaveByPlatform(specials),
+          ...interleaveByPlatform(normals),
+        ]),
+      );
+      final douyinTargetCount =
+          targets.where((item) => item.siteId == Constant.kDouyin).length;
+      final douyinLimiter = douyinTargetCount > 0
+          ? DouyinFollowRefreshLimiter.forTargetCount(douyinTargetCount)
+          : null;
 
-    Future<void> worker(int workerId) async {
-      while (taskQueue.isNotEmpty) {
-        if (generation != _updateGeneration) {
-          return;
+      var completed = 0;
+
+      Future<void> worker(int workerId) async {
+        while (taskQueue.isNotEmpty) {
+          if (generation != _updateGeneration) {
+            return;
+          }
+          var item = taskQueue.removeFirst();
+          await updateLiveStatus(
+            item,
+            generation: generation,
+            douyinLimiter: douyinLimiter,
+            workerIndex: workerId,
+          );
+          if (generation != _updateGeneration) {
+            return;
+          }
+          completed++;
+          _setRefreshProgress(
+            active: true,
+            automatic: automatic,
+            scopeKey: scope.scopeKey,
+            stage: scope.stage,
+            current: completed,
+            total: targets.length,
+          );
         }
-        var item = taskQueue.removeFirst();
-        await updateLiveStatus(item, generation: generation);
+      }
+
+      var workers = <Future>[];
+      for (var i = 0; i < concurrency; i++) {
+        workers.add(worker(i));
+      }
+
+      await Future.wait(workers);
+
+      if (generation != _updateGeneration) {
+        return;
+      }
+      if (douyinLimiter != null) {
+        final summary = douyinLimiter.finish(douyinTargetCount);
+        Log.logPrint(
+          "抖音关注刷新总结 scope=${scope.scopeKey} target=${summary.targetCount} "
+          "startConcurrency=${summary.initialConcurrency} "
+          "startInterval=${summary.initialInterval.inMilliseconds}ms "
+          "finalInterval=${summary.finalInterval.inMilliseconds}ms "
+          "success=${summary.successCount} limited=${summary.limitedCount} "
+          "cooldown=${summary.cooledDown} elapsed=${summary.elapsed.inMilliseconds}ms",
+        );
+      }
+      _setRefreshProgress(
+        active: false,
+        automatic: automatic,
+        scopeKey: scope.scopeKey,
+        stage: scope.stage,
+        current: completed,
+        total: targets.length,
+        completed: true,
+      );
+      filterData();
+
+      Log.logPrint("关注状态刷新完成");
+    } finally {
+      if (generation == _updateGeneration) {
+        updating.value = false;
+        _resetRefreshProgress();
       }
     }
+  }
 
-    var workers = <Future>[];
-    for (var i = 0; i < concurrency; i++) {
-      workers.add(worker(i));
-    }
+  void _setRefreshProgress({
+    required bool active,
+    required bool automatic,
+    required String scopeKey,
+    required String stage,
+    required int current,
+    required int total,
+    bool completed = false,
+    bool background = false,
+  }) {
+    refreshProgress.value = FollowRefreshProgress(
+      active: active,
+      automatic: automatic,
+      scopeKey: scopeKey,
+      stage: stage,
+      current: current.clamp(0, total).toInt(),
+      total: total,
+      completed: completed,
+      background: background,
+    );
+  }
 
-    await Future.wait(workers);
-
-    if (generation != _updateGeneration) {
-      return;
-    }
-    filterData();
-    updating.value = false;
-
-    Log.logPrint("????????");
+  void _resetRefreshProgress() {
+    refreshProgress.value = const FollowRefreshProgress.idle();
   }
 
   void filterData() {
@@ -710,6 +902,7 @@ class FollowService extends GetxService {
   void onClose() {
     _updateGeneration++;
     updating.value = false;
+    _resetRefreshProgress();
     updateTimer?.cancel();
     _eventReloadTimer?.cancel();
     subscription?.cancel();

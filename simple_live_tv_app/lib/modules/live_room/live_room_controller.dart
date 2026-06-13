@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:simple_live_core/simple_live_core.dart';
+import 'package:simple_live_tv_app/app/app_style.dart';
 import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/desktop_startup_args.dart';
@@ -65,6 +67,20 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 是否处于后台
   var isBackground = false;
 
+  /// 自动退出倒计时，单位秒
+  var countdown = 60.obs;
+
+  Timer? autoExitTimer;
+
+  /// 设置的自动关闭时长，单位分钟
+  var autoExitMinutes = 60.obs;
+
+  /// 是否已请求延迟自动关闭
+  var delayAutoExit = false.obs;
+
+  /// 是否启用自动关闭
+  var autoExitEnable = false.obs;
+
   var datetime = "00:00".obs;
 
   void initTimer() {
@@ -94,6 +110,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     CurrentRoomService.instance.setRoom(site, roomId);
     initTimer();
     _startLiveEventFlowTimer();
+    initAutoExit();
     showDanmakuState.value = DesktopStartupArgs.isSecondaryDesktopInstance
         ? false
         : AppSettingsController.instance.danmuEnable.value;
@@ -108,6 +125,52 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     super.onInit();
   }
 
+  void initAutoExit() {
+    autoExitEnable.value = AppSettingsController.instance.autoExitEnable.value;
+    autoExitMinutes.value =
+        AppSettingsController.instance.roomAutoExitDuration.value;
+    countdown.value = autoExitMinutes.value * 60;
+    if (autoExitEnable.value) {
+      setAutoExit();
+    }
+  }
+
+  void setAutoExit() {
+    if (!autoExitEnable.value) {
+      autoExitTimer?.cancel();
+      return;
+    }
+    autoExitTimer?.cancel();
+    countdown.value = autoExitMinutes.value * 60;
+    autoExitTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      countdown.value -= 1;
+      if (countdown.value <= 0) {
+        autoExitTimer?.cancel();
+        final delay = await Utils.showAlertDialog(
+          "定时关闭时间已到，是否延迟关闭？",
+          title: "延迟关闭",
+          confirm: "延迟",
+          cancel: "关闭",
+          selectable: true,
+        );
+        if (delay) {
+          delayAutoExit.value = true;
+          showAutoExitSheet();
+          setAutoExit();
+        } else {
+          delayAutoExit.value = false;
+          exit(0);
+        }
+      }
+    });
+  }
+
+  void stopAutoExit() {
+    autoExitEnable.value = false;
+    autoExitTimer?.cancel();
+    countdown.value = autoExitMinutes.value * 60;
+  }
+
   void refreshRoom() {
     //messages.clear();
 
@@ -115,6 +178,82 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     _clearDanmuDedupeState();
 
     loadData();
+  }
+
+  void showAutoExitSheet() {
+    Utils.showRightDialog(
+      child: ListView(
+        padding: AppStyle.edgeInsetsA12,
+        children: [
+          Padding(
+            padding: AppStyle.edgeInsetsA12,
+            child: Text(
+              "定时关闭",
+              style: AppStyle.titleStyleWhite,
+            ),
+          ),
+          Obx(
+            () => SwitchListTile(
+              title: Text(
+                "启用定时关闭",
+                style: Get.textTheme.titleMedium,
+              ),
+              value: autoExitEnable.value,
+              onChanged: (e) {
+                autoExitEnable.value = e;
+                AppSettingsController.instance.setAutoExitEnable(e);
+                if (e) {
+                  setAutoExit();
+                } else {
+                  stopAutoExit();
+                }
+              },
+            ),
+          ),
+          Obx(
+            () => ListTile(
+              enabled: autoExitEnable.value,
+              title: Text(
+                "自动关闭时间：${autoExitMinutes.value ~/ 60}小时${autoExitMinutes.value % 60}分钟",
+                style: Get.textTheme.titleMedium,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                var value = await showTimePicker(
+                  context: Get.context!,
+                  initialTime: TimeOfDay(
+                    hour: autoExitMinutes.value ~/ 60,
+                    minute: autoExitMinutes.value % 60,
+                  ),
+                  initialEntryMode: TimePickerEntryMode.inputOnly,
+                  builder: (_, child) {
+                    return MediaQuery(
+                      data: Get.mediaQuery.copyWith(
+                        alwaysUse24HourFormat: true,
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (value == null || (value.hour == 0 && value.minute == 0)) {
+                  return;
+                }
+                var duration =
+                    Duration(hours: value.hour, minutes: value.minute);
+                autoExitMinutes.value = duration.inMinutes;
+                AppSettingsController.instance
+                    .setRoomAutoExitDuration(autoExitMinutes.value);
+                if (autoExitEnable.value) {
+                  setAutoExit();
+                } else {
+                  countdown.value = autoExitMinutes.value * 60;
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 初始化弹幕接收事件
@@ -634,16 +773,14 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
     final id = "${site.id}_$roomId";
     var follow = DBService.instance.followBox.get(id);
-    if (follow == null) {
-      follow = FollowUser(
-        id: id,
-        roomId: roomId,
-        siteId: site.id,
-        userName: detail.value?.userName ?? "",
-        face: detail.value?.userAvatar ?? "",
-        addTime: DateTime.now(),
-      );
-    }
+    follow ??= FollowUser(
+      id: id,
+      roomId: roomId,
+      siteId: site.id,
+      userName: detail.value?.userName ?? "",
+      face: detail.value?.userAvatar ?? "",
+      addTime: DateTime.now(),
+    );
     follow.isSpecialFollow = enabled;
     DBService.instance.addFollow(follow);
     followed.value = true;
@@ -746,6 +883,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    autoExitTimer?.cancel();
     liveDanmaku.stop();
     _liveEventFlowTimer?.cancel();
     clearLiveEventFlow();

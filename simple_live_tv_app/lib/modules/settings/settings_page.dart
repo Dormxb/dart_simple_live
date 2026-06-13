@@ -287,26 +287,6 @@ class SettingsPage extends GetView<SettingsController> {
           ),
         ),
         AppStyle.vGap24,
-        Obx(
-          () => SettingsItemWidget(
-            foucsNode: controller.followPageSizeFocusNode,
-            autofocus: controller.followPageSizeFocusNode.isFoucsed.value,
-            title: "鍏虫敞姣忛〉鏁伴噺",
-            items: const {
-              50: "50",
-              100: "100",
-              150: "150",
-              200: "200",
-              300: "300",
-              400: "400",
-            },
-            value: AppSettingsController.instance.followPageSize.value,
-            onChanged: (e) {
-              AppSettingsController.instance.setFollowPageSize(e);
-              FollowUserService.instance.applyPageSizeSetting();
-            },
-          ),
-        ),
       ],
     );
   }
@@ -406,6 +386,27 @@ class SettingsPage extends GetView<SettingsController> {
                 AppSettingsController.instance.effectiveUpdateFollowThreadCount,
             onChanged: (e) {
               AppSettingsController.instance.setUpdateFollowThreadCount(e);
+            },
+          ),
+        ),
+        AppStyle.vGap24,
+        Obx(
+          () => SettingsItemWidget(
+            foucsNode: controller.followPageSizeFocusNode,
+            autofocus: controller.followPageSizeFocusNode.isFoucsed.value,
+            title: "关注每页数量",
+            items: const {
+              50: "50",
+              100: "100",
+              150: "150",
+              200: "200",
+              300: "300",
+              400: "400",
+            },
+            value: AppSettingsController.instance.followPageSize.value,
+            onChanged: (e) {
+              AppSettingsController.instance.setFollowPageSize(e);
+              FollowUserService.instance.applyPageSizeSetting();
             },
           ),
         ),

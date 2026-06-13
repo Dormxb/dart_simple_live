@@ -1022,10 +1022,13 @@ class LiveRoomController extends PlayerController
 
   /// 初始化自动关闭计时器
   void initAutoExit() {
-    autoExitEnable.value = false;
+    autoExitEnable.value = AppSettingsController.instance.autoExitEnable.value;
     autoExitMinutes.value =
         AppSettingsController.instance.roomAutoExitDuration.value;
     countdown.value = autoExitMinutes.value * 60;
+    if (autoExitEnable.value) {
+      setAutoExit();
+    }
   }
 
   void setAutoExit() {
@@ -2103,14 +2106,55 @@ class LiveRoomController extends PlayerController
           physics: const AlwaysScrollableScrollPhysics(),
           padding: AppStyle.edgeInsetsA12,
           itemCount: histories.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, __) => AppStyle.divider,
           itemBuilder: (_, i) {
             final item = histories[i];
             final historySite = Sites.allSites[item.siteId];
             return Material(
               color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
+              child: ListTile(
+                contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 8),
+                leading: NetImage(
+                  item.face,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                ),
+                title: Text(
+                  item.userName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Row(
+                  children: [
+                    if (historySite != null) ...[
+                      Image.asset(
+                        historySite.logo,
+                        width: 20,
+                      ),
+                      AppStyle.hGap4,
+                    ],
+                    Expanded(
+                      child: Text(
+                        historySite?.name ?? item.siteId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    AppStyle.hGap8,
+                    Text(
+                      Utils.parseTime(item.updateTime),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
                 onTap: historySite == null
                     ? null
                     : () {
@@ -2128,56 +2172,6 @@ class LiveRoomController extends PlayerController
                   await DBService.instance.historyBox.delete(item.id);
                   await loadHistory();
                 },
-                child: Ink(
-                  padding: AppStyle.edgeInsetsA8,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Get.theme.cardColor,
-                    border: Border.all(
-                      color: Colors.grey.withAlpha(25),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      NetImage(
-                        item.face,
-                        width: 48,
-                        height: 48,
-                        borderRadius: 24,
-                      ),
-                      AppStyle.hGap12,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.userName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            AppStyle.vGap4,
-                            Text(
-                              "${historySite?.name ?? item.siteId} · ${Utils.parseTime(item.updateTime)}",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (historySite != null) ...[
-                        AppStyle.hGap8,
-                        Image.asset(
-                          historySite.logo,
-                          width: 20,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
               ),
             );
           },
@@ -2573,12 +2567,12 @@ class LiveRoomController extends PlayerController
               value: autoExitEnable.value,
               onChanged: (e) {
                 autoExitEnable.value = e;
+                AppSettingsController.instance.setAutoExitEnable(e);
                 if (e) {
                   setAutoExit();
                 } else {
                   stopAutoExit();
                 }
-                //controller.setAutoExitEnable(e);
               },
             ),
           ),

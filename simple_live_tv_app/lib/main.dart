@@ -248,7 +248,11 @@ Future initServices() async {
   Get.put(DouyinAccountService());
   Get.put(ProfileBackupService());
 
-  Get.put(SyncService());
+  if (DesktopStartupArgs.isSecondaryDesktopInstance) {
+    Log.i("Skip SyncService for TV-Windows secondary player instance");
+  } else {
+    Get.put(SyncService());
+  }
 
   Get.put(FollowUserService());
 }

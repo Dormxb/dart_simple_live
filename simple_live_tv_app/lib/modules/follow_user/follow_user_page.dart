@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
@@ -208,20 +207,23 @@ class _FollowUserPageState extends State<FollowUserPage> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "当前页刷新只补当前页普通关注，特别关注始终全量优先刷新。",
+                      "当前页刷新只处理本页目标；刷新全部会覆盖当前关注总表。",
                       style: AppStyle.subTextStyleWhite,
                     ),
                   ),
                 ),
               ),
             ),
+            Obx(() => _buildRefreshProgress()),
             AppStyle.vGap32,
             Expanded(
               child: Stack(
                 children: [
                   Obx(
-                    () => MasonryGridView.count(
+                    () => GridView.builder(
                       controller: _scrollController,
+                      primary: false,
+                      cacheExtent: 1200.w,
                       padding: EdgeInsets.only(
                         left: 48.w,
                         right: 48.w,
@@ -230,39 +232,48 @@ class _FollowUserPageState extends State<FollowUserPage> {
                                 ? 120.w
                                 : 0,
                       ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 48.w,
+                        mainAxisSpacing: 40.w,
+                        childAspectRatio: 2.75,
+                      ),
                       itemCount: FollowUserService.instance.list.length,
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 48.w,
-                      mainAxisSpacing: 40.w,
                       itemBuilder: (_, i) {
                         var item = FollowUserService.instance.list[i];
                         final isCurrent = "${item.siteId}_${item.roomId}" ==
                             CurrentRoomService.instance.currentKey;
-                        return Obx(
-                          () => Stack(
-                            children: [
-                              AnchorCard(
-                                face: item.face,
-                                name: item.userName,
-                                siteId: item.siteId,
-                                liveStatus: item.liveStatus.value,
-                                roomId: item.roomId,
-                                autofocus: isCurrent,
-                                focusNode: _focusNodeFor(item.id),
-                                onTap: _multiSelectMode.value
-                                    ? () => _toggleRoom(item)
-                                    : null,
-                              ),
-                              if (_selectedRoomKeys.contains(item.id))
-                                Positioned(
-                                  right: 12.w,
-                                  bottom: 12.w,
-                                  child: const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.lightGreenAccent,
+                        return SizedBox(
+                          height: 164.w,
+                          child: Obx(
+                            () => Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned.fill(
+                                  child: AnchorCard(
+                                    face: item.face,
+                                    name: item.userName,
+                                    siteId: item.siteId,
+                                    liveStatus: item.liveStatus.value,
+                                    roomId: item.roomId,
+                                    autofocus: isCurrent,
+                                    focusNode: _focusNodeFor(item.id),
+                                    onTap: _multiSelectMode.value
+                                        ? () => _toggleRoom(item)
+                                        : null,
                                   ),
                                 ),
-                            ],
+                                if (_selectedRoomKeys.contains(item.id))
+                                  Positioned(
+                                    right: 12.w,
+                                    bottom: 12.w,
+                                    child: const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.lightGreenAccent,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -339,6 +350,55 @@ class _FollowUserPageState extends State<FollowUserPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefreshProgress() {
+    final progress = FollowUserService.instance.refreshProgress.value;
+    if (!progress.active) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: EdgeInsets.only(top: 12.w, left: 48.w, right: 48.w),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.w),
+        decoration: BoxDecoration(
+          color: Colors.black.withAlpha(progress.automatic ? 120 : 160),
+          borderRadius: AppStyle.radius16,
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    progress.stage,
+                    style: AppStyle.textStyleWhite.copyWith(fontSize: 24.w),
+                  ),
+                ),
+                Text(
+                  "${progress.current}/${progress.total}",
+                  style: AppStyle.textStyleWhite.copyWith(fontSize: 24.w),
+                ),
+              ],
+            ),
+            AppStyle.vGap12,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress.total > 0 ? progress.percent : null,
+                minHeight: 8.w,
+                backgroundColor: Colors.white12,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Colors.lightGreenAccent,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

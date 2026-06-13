@@ -28,6 +28,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   var totalDisplayPages = 1.obs;
   var paginationEnabled = false.obs;
   var updating = false.obs;
+  var refreshProgress = const FollowRefreshProgress.idle().obs;
 
   Timer? updateTimer;
   bool needUpdate = true;
@@ -36,6 +37,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   bool _forceNextStatusRefresh = false;
   DateTime? _douyinLimitedUntil;
   int _douyinLimitGeneration = 0;
+  bool _douyinSoftLimited = false;
 
   FollowUserService() {
     pageSize = AppSettingsController.kFollowPageSizeDefault;
@@ -49,7 +51,7 @@ class FollowUserService extends BasePageController<FollowUser> {
     });
 
     if (list.isEmpty) {
-      refreshData();
+      refreshData(forceStatus: false);
     }
     initTimer();
     super.onInit();
@@ -90,7 +92,7 @@ class FollowUserService extends BasePageController<FollowUser> {
       this.pageSize = AppSettingsController.instance.followPageSize.value;
       allList.assignAll(_sortFollowUsers(DBService.instance.getFollowList()));
       updateLivingList();
-      if (needUpdate) {
+      if (needUpdate && _forceNextStatusRefresh) {
         unawaited(
           startUpdateStatus(
             allList.toList(),
@@ -179,16 +181,15 @@ class FollowUserService extends BasePageController<FollowUser> {
     sortList();
   }
 
-  List<FollowUser> get currentPageNormalTargets =>
-      list.where((item) => !item.isSpecialFollow).toList();
+  List<FollowUser> get currentPageTargets => list.toList();
+
+  String get currentRefreshScopeKey => "page:${currentDisplayPage.value}";
 
   Future<void> refreshCurrentPageStatus() async {
-    final targets = paginationEnabled.value
-        ? currentPageNormalTargets
-        : allList.where((item) => !item.isSpecialFollow).toList();
     await startUpdateStatus(
-      _buildRefreshTargets(targets),
+      paginationEnabled.value ? currentPageTargets : allList.toList(),
       force: true,
+      scope: FollowRefreshScope.page(scopeKey: currentRefreshScopeKey),
     );
   }
 
@@ -196,6 +197,7 @@ class FollowUserService extends BasePageController<FollowUser> {
     await startUpdateStatus(
       _buildRefreshTargets(allList, includeAllNormals: true),
       force: true,
+      scope: const FollowRefreshScope.all(),
     );
   }
 
@@ -330,7 +332,8 @@ class FollowUserService extends BasePageController<FollowUser> {
     final currentItems = <FollowUser>[];
     final others = <FollowUser>[];
     for (final item in items) {
-      if (item.id == currentKey) {
+      final itemKey = "${item.siteId}_${item.roomId}";
+      if (itemKey == currentKey) {
         currentItems.add(item);
       } else {
         others.add(item);
@@ -342,7 +345,9 @@ class FollowUserService extends BasePageController<FollowUser> {
   Future<void> startUpdateStatus(
     List<FollowUser> followList, {
     bool force = false,
+    FollowRefreshScope? scope,
   }) async {
+    final resolvedScope = scope ?? FollowRefreshScope.all(automatic: !force);
     final now = DateTime.now();
     final lastStartedAt = _lastUpdateStatusStartedAt;
     if (!force &&
@@ -350,16 +355,34 @@ class FollowUserService extends BasePageController<FollowUser> {
         now.difference(lastStartedAt) < updateStatusCooldown) {
       Log.logPrint("关注状态刷新过于频繁，已跳过本次网络刷新");
       updating.value = false;
+      _resetRefreshProgress();
       sortList();
+      return;
+    }
+
+    if (updating.value &&
+        refreshProgress.value.active &&
+        refreshProgress.value.scopeKey == resolvedScope.scopeKey &&
+        !refreshProgress.value.completed) {
+      Log.logPrint("同一刷新任务仍在进行，复用当前进度: ${resolvedScope.scopeKey}");
       return;
     }
 
     _lastUpdateStatusStartedAt = now;
     final generation = ++_updateGeneration;
+    final automatic = resolvedScope.automatic;
     if (updating.value) {
       Log.logPrint("已有关注状态刷新任务，旧任务会被新任务替换");
     }
     updating.value = true;
+    _setRefreshProgress(
+      active: true,
+      automatic: automatic,
+      scopeKey: resolvedScope.scopeKey,
+      stage: resolvedScope.stage,
+      current: 0,
+      total: followList.length,
+    );
 
     try {
       if (followList.isEmpty) {
@@ -375,45 +398,126 @@ class FollowUserService extends BasePageController<FollowUser> {
       final taskQueue = Queue<FollowUser>.from(
         _deprioritizeCurrentRoom(_interleaveByPlatform(followList)),
       );
+      final douyinTargetCount =
+          followList.where((item) => item.siteId == Constant.kDouyin).length;
+      final douyinLimiter = douyinTargetCount > 0
+          ? DouyinFollowRefreshLimiter.forTargetCount(douyinTargetCount)
+          : null;
+      var completed = 0;
 
-      Future<void> worker() async {
+      Future<void> worker(int workerIndex) async {
         while (taskQueue.isNotEmpty) {
           if (generation != _updateGeneration) {
             return;
           }
           final item = taskQueue.removeFirst();
-          await updateLiveStatus(item, generation: generation);
+          await updateLiveStatus(
+            item,
+            generation: generation,
+            douyinLimiter: douyinLimiter,
+            workerIndex: workerIndex,
+          );
+          if (generation != _updateGeneration) {
+            return;
+          }
+          completed++;
+          _setRefreshProgress(
+            active: true,
+            automatic: automatic,
+            scopeKey: resolvedScope.scopeKey,
+            stage: resolvedScope.stage,
+            current: completed,
+            total: followList.length,
+          );
         }
       }
 
       final workers = <Future<void>>[];
       for (var i = 0; i < concurrency; i++) {
-        workers.add(worker());
+        workers.add(worker(i));
       }
       await Future.wait(workers);
 
       if (generation != _updateGeneration) {
         return;
       }
+      if (douyinLimiter != null) {
+        final summary = douyinLimiter.finish(douyinTargetCount);
+        Log.logPrint(
+          "抖音关注刷新总结 scope=${resolvedScope.scopeKey} target=${summary.targetCount} "
+          "startConcurrency=${summary.initialConcurrency} "
+          "startInterval=${summary.initialInterval.inMilliseconds}ms "
+          "finalInterval=${summary.finalInterval.inMilliseconds}ms "
+          "success=${summary.successCount} limited=${summary.limitedCount} "
+          "cooldown=${summary.cooledDown} elapsed=${summary.elapsed.inMilliseconds}ms",
+        );
+      }
+      _setRefreshProgress(
+        active: false,
+        automatic: automatic,
+        scopeKey: resolvedScope.scopeKey,
+        stage: resolvedScope.stage,
+        current: completed,
+        total: followList.length,
+        completed: true,
+      );
       sortList();
       Log.logPrint("关注状态更新完成");
     } finally {
       if (generation == _updateGeneration) {
         updating.value = false;
+        _resetRefreshProgress();
       }
     }
   }
 
-  Future<void> updateLiveStatus(FollowUser item, {int? generation}) async {
+  void _setRefreshProgress({
+    required bool active,
+    required bool automatic,
+    required String scopeKey,
+    required String stage,
+    required int current,
+    required int total,
+    bool completed = false,
+    bool background = false,
+  }) {
+    refreshProgress.value = FollowRefreshProgress(
+      active: active,
+      automatic: automatic,
+      scopeKey: scopeKey,
+      stage: stage,
+      current: current.clamp(0, total).toInt(),
+      total: total,
+      completed: completed,
+      background: background,
+    );
+  }
+
+  void _resetRefreshProgress() {
+    refreshProgress.value = const FollowRefreshProgress.idle();
+  }
+
+  Future<void> updateLiveStatus(
+    FollowUser item, {
+    int? generation,
+    DouyinFollowRefreshLimiter? douyinLimiter,
+    int workerIndex = 0,
+  }) async {
     try {
       if (_shouldSkipDouyinByLimit(item)) {
         item.liveStatus.value = 0;
         return;
       }
+      if (item.siteId == Constant.kDouyin && douyinLimiter != null) {
+        await douyinLimiter.beforeRequest(workerIndex);
+      }
       final site = Sites.allSites[item.siteId]!;
       final isLiving = await site.liveSite.getLiveStatus(roomId: item.roomId);
       if (generation != null && generation != _updateGeneration) {
         return;
+      }
+      if (item.siteId == Constant.kDouyin && douyinLimiter != null) {
+        douyinLimiter.onSuccess();
       }
       item.liveStatus.value = isLiving ? 2 : 1;
     } catch (e) {
@@ -421,7 +525,16 @@ class FollowUserService extends BasePageController<FollowUser> {
         return;
       }
       if (_isDouyinLimited(item, e)) {
-        _handleDouyinLimited(generation: generation);
+        if (douyinLimiter != null) {
+          final hardLimited = douyinLimiter.onLimited();
+          if (hardLimited) {
+            _handleDouyinLimited(generation: generation);
+          } else {
+            _handleDouyinSoftLimited(generation: generation);
+          }
+        } else {
+          _handleDouyinLimited(generation: generation);
+        }
       }
       Log.logPrint(e);
     }
@@ -442,6 +555,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   }
 
   void _handleDouyinLimited({int? generation}) {
+    _douyinSoftLimited = false;
     _douyinLimitedUntil = DateTime.now().add(const Duration(minutes: 10));
     if (generation != null && _douyinLimitGeneration == generation) {
       return;
@@ -449,6 +563,17 @@ class FollowUserService extends BasePageController<FollowUser> {
     _douyinLimitGeneration = generation ?? _updateGeneration;
     Log.w("抖音访问受限，后续抖音关注刷新将跳过，10 分钟后再试");
     SmartDialog.showToast("抖音访问受限，请稍后再试");
+  }
+
+  void _handleDouyinSoftLimited({int? generation}) {
+    if (generation != null &&
+        _douyinLimitGeneration == generation &&
+        _douyinSoftLimited) {
+      return;
+    }
+    _douyinLimitGeneration = generation ?? _updateGeneration;
+    _douyinSoftLimited = true;
+    Log.w("抖音访问接近限制，已暂停 15 秒并自动降速后继续刷新");
   }
 
   void removeItem(FollowUser item, {bool refresh = true}) async {
@@ -473,6 +598,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   void onClose() {
     _updateGeneration++;
     updating.value = false;
+    _resetRefreshProgress();
     updateTimer?.cancel();
     subscription?.cancel();
     super.onClose();

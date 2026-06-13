@@ -164,7 +164,17 @@ class LocalSyncController extends BaseController {
           Visibility(
             visible: !SyncService.instance.httpRunning.value,
             child: Text(
-              'HTTP服务未启动：${SyncService.instance.httpErrorMsg}，请尝试重启应用',
+              SyncService.instance.lanErrorMsg.isEmpty
+                  ? 'HTTP服务未启动，请尝试重启应用'
+                  : SyncService.instance.lanErrorMsg,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Visibility(
+            visible: SyncService.instance.httpRunning.value &&
+                SyncService.instance.udpErrorMsg.value.isNotEmpty,
+            child: Text(
+              SyncService.instance.udpErrorMsg.value,
               textAlign: TextAlign.center,
             ),
           ),

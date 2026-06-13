@@ -158,7 +158,30 @@ class LiveRoomPage extends GetView<LiveRoomController> {
             ),
           ),
         ),
+        Obx(
+          () => Visibility(
+            visible: controller.autoExitEnable.value,
+            child: Positioned(
+              right: 24,
+              top: 24,
+              child: Text(
+                "${parseDuration(controller.countdown.value)}后自动关闭",
+                style: AppStyle.textStyleWhite,
+              ),
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  String parseDuration(int duration) {
+    int hours = duration ~/ 3600;
+    int minutes = duration % 3600 ~/ 60;
+    int seconds = duration % 60;
+
+    return "${hours.toString().padLeft(2, '0')}:"
+        "${minutes.toString().padLeft(2, '0')}:"
+        "${seconds.toString().padLeft(2, '0')}";
   }
 }

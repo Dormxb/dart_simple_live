@@ -453,7 +453,11 @@ Future initServices() async {
   Get.put(LiveSubtitleService());
   Get.put(ProfileBackupService());
 
-  Get.put(SyncService());
+  if (DesktopStartupArgs.isSecondaryDesktopInstance) {
+    Log.i("Skip SyncService for desktop secondary player instance");
+  } else {
+    Get.put(SyncService());
+  }
 
   initCoreLog();
 }

@@ -19,9 +19,9 @@ class Utils {
   static Size measureContent(
     DanmakuContentItem content,
     double fontSize,
-    int fontWeight,
-    double emojiScale,
-  ) {
+    int fontWeight, [
+    double emojiScale = 1.25,
+  ]) {
     final parts = contentParts(content);
     final text = parts
         .where((part) => part.isText)
@@ -49,9 +49,9 @@ class Utils {
     DanmakuContentItem content,
     double danmakuWidth,
     double fontSize,
-    int fontWeight,
-    double emojiScale,
-  ) {
+    int fontWeight, [
+    double emojiScale = 1.25,
+  ]) {
     final builder = ui.ParagraphBuilder(
       ui.ParagraphStyle(
         textAlign: TextAlign.left,
@@ -69,9 +69,9 @@ class Utils {
     DanmakuContentItem content,
     double danmakuWidth,
     double fontSize,
-    int fontWeight,
-    double emojiScale,
-  ) {
+    int fontWeight, [
+    double emojiScale = 1.25,
+  ]) {
     final Paint strokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2

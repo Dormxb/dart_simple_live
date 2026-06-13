@@ -9,7 +9,6 @@ import 'package:simple_live_tv_app/app/event_bus.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/services/bulk_data_import_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
-import 'package:simple_live_tv_app/services/follow_user_service.dart';
 import 'package:simple_live_tv_app/services/local_storage_service.dart';
 
 class ProfileBackupService extends GetxService {
@@ -147,9 +146,6 @@ class ProfileBackupService extends GetxService {
     if (options.settings || options.shields) {
       AppSettingsController.instance.onInit();
     }
-    if (options.follows) {
-      await FollowUserService.instance.refreshData(forceStatus: false);
-    }
     EventBus.instance.emit(Constant.kUpdateFollow, 0);
     EventBus.instance.emit(Constant.kUpdateHistory, 0);
     return summary;
@@ -215,9 +211,6 @@ class ProfileBackupService extends GetxService {
           onProgress,
         );
       }
-    }
-    if (options.follows) {
-      await FollowUserService.instance.refreshData(forceStatus: false);
     }
     EventBus.instance.emit(Constant.kUpdateFollow, 0);
     EventBus.instance.emit(Constant.kUpdateHistory, 0);

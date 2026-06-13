@@ -198,9 +198,25 @@ class SyncPage extends GetView<SyncController> {
                         () => Visibility(
                           visible: !SyncService.instance.httpRunning.value,
                           child: Text(
-                            'HTTP服务未启动：${SyncService.instance.httpErrorMsg}，请尝试重启应用',
+                            SyncService.instance.lanErrorMsg.isEmpty
+                                ? 'HTTP服务未启动，请尝试重启应用'
+                                : SyncService.instance.lanErrorMsg,
                             style: AppStyle.textStyleWhite,
                             textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                      Obx(
+                        () => Visibility(
+                          visible: SyncService.instance.httpRunning.value &&
+                              SyncService.instance.udpErrorMsg.value.isNotEmpty,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 12.w),
+                            child: Text(
+                              SyncService.instance.udpErrorMsg.value,
+                              style: AppStyle.subTextStyleWhite,
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                       ),

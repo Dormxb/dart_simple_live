@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_models.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_player_controller.dart';
 
 class MultiRoomController extends GetxController {
+  static const int androidMaxRooms = 4;
+
   final List<MultiRoomItem> initialRooms;
 
   MultiRoomController(this.initialRooms);
@@ -13,7 +17,14 @@ class MultiRoomController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    rooms.assignAll(_distinct(initialRooms));
+    final distinctRooms = _distinct(initialRooms);
+    if (Platform.isAndroid && distinctRooms.length > androidMaxRooms) {
+      SmartDialog.showToast(
+          "Android TV 同播默认最多 $androidMaxRooms 路，已自动保留前 $androidMaxRooms 路");
+      rooms.assignAll(distinctRooms.take(androidMaxRooms));
+      return;
+    }
+    rooms.assignAll(distinctRooms);
   }
 
   List<MultiRoomItem> _distinct(Iterable<MultiRoomItem> items) {
