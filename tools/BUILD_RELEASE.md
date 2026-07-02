@@ -108,3 +108,11 @@ TV-Windows 包必须包含：
 - 文件大小
 - SHA256
 - `RELEASE_NOTES.md` UTF-8 回读无乱码
+
+## 全平台 release 补充流程（2026-07-02）
+
+- 正式目录结构：主 App 的 Windows / Android / Linux / macOS / iOS 放入 `release\v1.12.6`；TV / TV-Windows 放入 `release\tv_v1.7.7`，不要把最终产物留在临时 combined staging 目录。
+- Linux 本地构建优先使用 WSL Flutter：`/root/tools/flutter_3.38.10/bin/flutter`。如 `mimalloc-2.1.2.tar.gz` 校验失败，删除 0 字节坏包后走 `127.0.0.1:51888` 代理补包，并校验 MD5 `5179c8f5cf1237d2300e2d8559a7bc55`。
+- 如果 `flutter_distributor` 在 `/mnt/c` 打 deb 遇到 777 权限或 bundle 路径问题，可使用 Flutter 先生成 `build/linux/x64/release/bundle`，再手工打 zip/deb；deb 的 `DEBIAN` 目录权限必须在 0755 到 0775 之间。
+- macOS/iOS 走 GitHub Actions：推送包含 release 修复的临时分支，然后触发 `publish_app_release_macos_manual.yml` 与 `publish_app_release_ios_manual.yml`，参数 `upload_release=false`，下载 artifact 后复制到主 App release 根目录。
+- 最终校验必须列出 `LastWriteTime`、`Length`、`SHA256`；Windows zip 要包含 exe、`dart_quickjs.dll`、`NativeAssetsManifest.json`；Android APK 要包含对应 ABI 的 `libdart_quickjs.so`；TV-Windows 同样要包含 exe、`dart_quickjs.dll`、`NativeAssetsManifest.json`。
