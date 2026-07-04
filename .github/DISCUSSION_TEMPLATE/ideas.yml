@@ -8,8 +8,9 @@ body:
 
         请注意：
         - 非 `BUG` 需求不要发到 `Issues`，否则可能会被直接关闭。
-        - 需求必须通过 `Discussions` 公开讨论和投票，获得足够投票认可后才会被考虑排期或上线。
-        - 请先搜索已有 Discussion。已有相同需求时，请给已有帖子投票并补充说明，不要重复开帖。
+        - 需求必须通过 `Discussions` 公开讨论。其他用户请给主楼点 Upvote/👍 表示支持，评论只用于补充理由。
+        - 只有获得足够支持的需求，才会被考虑排期或上线。
+        - 请先搜索已有 Discussion。已有相同需求时，请给已有帖子的主楼点 Upvote/👍 并补充说明，不要重复开帖。
         - 提需求不是派单。请说明真实使用场景、受影响人群和你愿意如何协助验证。
 
   - type: checkboxes
@@ -18,7 +19,9 @@ body:
       label: 投票规则
       description: 请确认你理解非 BUG 需求的处理方式
       options:
-        - label: 我知道非 BUG 需求必须在 Discussions 公开讨论并通过投票获得认可，不能只靠个人反复催促要求上线
+        - label: 我知道非 BUG 需求必须在 Discussions 公开讨论，其他用户需要给主楼点 Upvote/👍 才算明确支持
+          required: true
+        - label: 我知道评论只用于补充理由、场景和证据，不能靠反复评论或催促要求上线
           required: true
         - label: 我已经搜索过现有 Discussions，没有找到相同或高度相似的需求
           required: true
