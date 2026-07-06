@@ -35,11 +35,6 @@ function percent(count, total) {
   return ((count / total) * 100).toFixed(1);
 }
 
-function bar(count, total, width = 24) {
-  if (total === 0) return "░".repeat(width);
-  const filled = Math.round((count / total) * width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
-}
 
 function buildBody(discussion) {
   const poll = discussion.poll;
@@ -51,7 +46,7 @@ function buildBody(discussion) {
   const rows = poll.options.nodes
     .map((item) => {
       const rate = percent(item.totalVoteCount, total);
-      return `| ${item.option} | ${item.totalVoteCount} | ${rate}% | \`${bar(item.totalVoteCount, total)}\` |`;
+      return `| ${item.option} | ${item.totalVoteCount} | ${rate}% |`;
     })
     .join("\n");
 
@@ -62,10 +57,10 @@ function buildBody(discussion) {
 
 **${poll.question}**
 
-| 选项 | 票数 | 占比 | 条形图 |
-|---|---:|---:|---|
+| 选项 | 票数 | 占比 |
+|---|---:|---:|
 ${rows}
-| **合计** | **${total}** | **100%** |  |
+| **合计** | **${total}** | **100%** |
 
 更新时间：${updatedAt}
 
