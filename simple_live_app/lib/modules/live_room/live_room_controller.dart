@@ -1573,6 +1573,9 @@ class LiveRoomController extends PlayerController
     await initPlaylist();
   }
 
+  bool get _shouldRefreshUrlsOnPlaybackRetry =>
+      site.id == Constant.kHuya || site.id == Constant.kDouyu;
+
   @override
   void mediaEnd() async {
     super.mediaEnd();
@@ -1583,7 +1586,7 @@ class LiveRoomController extends PlayerController
         await Future.delayed(const Duration(seconds: 1));
       }
       mediaErrorRetryCount += 1;
-      await setPlayer(refreshUrls: site.id == Constant.kHuya);
+      await setPlayer(refreshUrls: _shouldRefreshUrlsOnPlaybackRetry);
       return;
     }
 
@@ -1616,7 +1619,7 @@ class LiveRoomController extends PlayerController
         await Future.delayed(const Duration(seconds: 1));
       }
       mediaErrorRetryCount += 1;
-      await setPlayer(refreshUrls: site.id == Constant.kHuya);
+      await setPlayer(refreshUrls: _shouldRefreshUrlsOnPlaybackRetry);
       return;
     }
 
@@ -2892,7 +2895,7 @@ ${errorStackTrace ?? ""}''');
       return;
     }
     Log.d("$reason 后检测到播放停滞，尝试恢复");
-    await setPlayer(refreshUrls: site.id == Constant.kHuya);
+    await setPlayer(refreshUrls: _shouldRefreshUrlsOnPlaybackRetry);
   }
 
   @override

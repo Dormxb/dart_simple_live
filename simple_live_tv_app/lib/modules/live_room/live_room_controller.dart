@@ -677,6 +677,32 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     setPlayer();
   }
 
+  Future<bool> _reloadPlayUrls({bool silent = false}) async {
+    if (detail.value == null ||
+        currentQuality < 0 ||
+        currentQuality >= qualites.length) {
+      return false;
+    }
+    currentQualityInfo.value = qualites[currentQuality].quality;
+    var playUrl = await site.liveSite
+        .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
+    if (playUrl.urls.isEmpty) {
+      if (!silent) {
+        SmartDialog.showToast("无法读取播放地址");
+      }
+      return false;
+    }
+    playUrls.value = playUrl.urls;
+    playHeaders = playUrl.headers;
+    if (currentLineIndex < 0) {
+      currentLineIndex = 0;
+    } else if (currentLineIndex >= playUrls.length) {
+      currentLineIndex = playUrls.length - 1;
+    }
+    currentLineInfo.value = "线路${currentLineIndex + 1}";
+    return true;
+  }
+
   void changePlayLine(int index) {
     currentLineIndex = index;
     //重置错误次数
@@ -684,7 +710,13 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     setPlayer();
   }
 
-  void setPlayer() async {
+  void setPlayer({bool refreshUrls = false}) async {
+    if (refreshUrls) {
+      var reloaded = await _reloadPlayUrls(silent: true);
+      if (!reloaded) {
+        return;
+      }
+    }
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
     await initializePlayer();
@@ -699,6 +731,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     Log.d("播放链接\r\n：${playUrls[currentLineIndex]}");
   }
 
+  bool get _shouldRefreshUrlsOnPlaybackRetry =>
+      site.id == Constant.kHuya || site.id == Constant.kDouyu;
+
   @override
   void mediaEnd() async {
     if (mediaErrorRetryCount < 2) {
@@ -709,7 +744,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
       mediaErrorRetryCount += 1;
       //刷新一次
-      setPlayer();
+      setPlayer(refreshUrls: _shouldRefreshUrlsOnPlaybackRetry);
       return;
     }
 
@@ -736,7 +771,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
       mediaErrorRetryCount += 1;
       //刷新一次
-      setPlayer();
+      setPlayer(refreshUrls: _shouldRefreshUrlsOnPlaybackRetry);
       return;
     }
 
