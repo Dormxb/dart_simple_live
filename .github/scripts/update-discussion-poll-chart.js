@@ -108,15 +108,21 @@ async function createManagedComment(discussionId, body) {
   return result.addDiscussionComment.comment.id;
 }
 
-async function replaceManagedComments(discussionId, body, comments, reason) {
+async function refreshManagedComments(discussionId, body, comments, reason) {
   const blocked = comments.filter((comment) => !comment.viewerCanDelete);
-  if (blocked.length) {
-    throw new Error(`${reason} Current token also cannot delete the existing poll chart comment(s). Configure DISCUSSION_BOT_TOKEN with permission to edit or delete the original comment.`);
-  }
 
   for (const comment of comments) {
+    if (!comment.viewerCanDelete) {
+      console.warn(`${reason} Current token also cannot delete managed comment ${comment.id}; creating a new current comment instead.`);
+      continue;
+    }
+
     await graphql(deleteMutation, { commentId: comment.id });
     console.log(`Deleted stale poll chart comment: ${comment.id}`);
+  }
+
+  if (blocked.length) {
+    console.warn("Configure DISCUSSION_BOT_TOKEN with permission to edit or delete old bot comments if you want duplicate cleanup.");
   }
 
   return createManagedComment(discussionId, body);
@@ -190,6 +196,7 @@ mutation($commentId:ID!) {
   }
 
   const managedComments = pickManagedComments(discussion.comments.nodes);
+  const current = managedComments.find((comment) => hasCurrentPollContent(comment.body, content));
   const editable = managedComments.find((comment) => comment.viewerCanUpdate);
 
   if (!managedComments.length) {
@@ -197,13 +204,13 @@ mutation($commentId:ID!) {
     return;
   }
 
+  if (current) {
+    console.log(`Managed comment ${current.id} already has the latest poll data; skipped timestamp-only refresh.`);
+    return;
+  }
+
   if (!editable) {
-    const current = managedComments[0];
-    if (hasCurrentPollContent(current.body, content)) {
-      console.log(`Managed comment ${current.id} already has the latest poll data; skipped timestamp-only refresh.`);
-      return;
-    }
-    await replaceManagedComments(
+    await refreshManagedComments(
       discussion.id,
       body,
       managedComments,
@@ -223,7 +230,7 @@ mutation($commentId:ID!) {
       console.log(`Managed comment ${editable.id} already has the latest poll data; skipped after update permission failure.`);
       return;
     }
-    await replaceManagedComments(
+    await refreshManagedComments(
       discussion.id,
       body,
       managedComments,
