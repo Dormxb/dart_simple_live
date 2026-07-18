@@ -356,7 +356,7 @@ class AppSettingsController extends GetxController {
     followDisplayStyle.value = _normalizeFollowDisplayStyle(
       LocalStorageService.instance.getValue(
         LocalStorageService.kFollowDisplayStyle,
-        "default",
+        "card",
       ),
     );
     followOnlyLive.value = LocalStorageService.instance.getValue(
@@ -369,7 +369,7 @@ class AppSettingsController extends GetxController {
     );
     followShowLiveCover.value = LocalStorageService.instance.getValue(
       LocalStorageService.kFollowShowLiveCover,
-      false,
+      true,
     );
 
     rememberWindowPlacement.value = LocalStorageService.instance.getValue(
@@ -1962,7 +1962,7 @@ class AppSettingsController extends GetxController {
     if (followDisplayStyleOptions.contains(value)) {
       return value;
     }
-    return "default";
+    return "card";
   }
 
   void setFollowGroupSelection({

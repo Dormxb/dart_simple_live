@@ -314,7 +314,7 @@ class FollowUserPage extends GetView<FollowUserController> {
       final cardWidth = availableWidth / crossAxisCount;
       final coverHeight = cardWidth * 9 / 16;
       final cardExtent = showLiveCover
-          ? coverHeight + (mobile ? 46 : 52)
+          ? coverHeight + 46
           : (mobile ? 178.0 : 190.0);
       return _FollowLayoutSpec(
         itemStyle: FollowUserItemStyle.card,

@@ -332,23 +332,21 @@ class FollowUserItem extends StatelessWidget {
     final radius = BorderRadius.circular(16);
     return Material(
       color: theme.cardColor,
-      borderRadius: radius,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: playing
+              ? theme.colorScheme.primary.withAlpha(180)
+              : Colors.black.withAlpha(24),
+          width: playing ? 1.4 : 0.8,
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: radius,
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: playing
-                  ? theme.colorScheme.primary.withAlpha(180)
-                  : Colors.black.withAlpha(24),
-              width: playing ? 1.4 : 0.8,
-            ),
-            borderRadius: radius,
-          ),
-          child: Column(
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
@@ -357,33 +355,25 @@ class FollowUserItem extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                  padding: const EdgeInsets.fromLTRB(10, 3, 10, 3),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       NetImage(
                         item.face,
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
+                        width: 15,
+                        height: 15,
+                        borderRadius: 7,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                item.userName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildStatusDot(),
-                          ],
+                        child: Text(
+                          item.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -399,7 +389,6 @@ class FollowUserItem extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -566,21 +555,29 @@ class FollowUserItem extends StatelessWidget {
           left: 8,
           right: 8,
           bottom: 8,
-          child: Text(
-            _displayRoomTitle(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              shadows: [
-                Shadow(
-                  blurRadius: 8,
-                  color: Colors.black54,
+          child: Row(
+            children: [
+              _buildStatusDot(),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _displayRoomTitle(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 8,
+                        color: Colors.black54,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -628,9 +625,9 @@ class FollowUserItem extends StatelessWidget {
     required bool compact,
     required bool vertical,
   }) {
-    final iconSize = compact ? 16.0 : 20.0;
+    final iconSize = compact ? 14.0 : 20.0;
     final buttonConstraints = compact
-        ? const BoxConstraints.tightFor(width: 22, height: 22)
+        ? const BoxConstraints.tightFor(width: 20, height: 20)
         : const BoxConstraints(minWidth: 28, minHeight: 28);
     final children = <Widget>[
       if (onSpecialTap != null)
