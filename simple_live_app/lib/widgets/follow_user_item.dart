@@ -357,60 +357,32 @@ class FollowUserItem extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       NetImage(
                         item.face,
-                        width: 42,
-                        height: 42,
-                        borderRadius: 21,
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              item.userName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Text(
+                                item.userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _displayRoomTitle(),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                Image.asset(
-                                  _site.logo,
-                                  width: 16,
-                                  height: 16,
-                                ),
-                                Text(
-                                  _site.name,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                _buildInfoChip(
-                                  context,
-                                  label: getStatus(item.liveStatus.value),
-                                  active: item.liveStatus.value == 2,
-                                ),
-                              ],
-                            ),
+                            const SizedBox(width: 8),
+                            _buildStatusDot(),
                           ],
                         ),
                       ),
@@ -512,6 +484,31 @@ class FollowUserItem extends StatelessWidget {
     );
   }
 
+  Widget _buildPlatformBadge(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withAlpha(140),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(_site.logo, width: 14, height: 14),
+          const SizedBox(width: 4),
+          Text(
+            _site.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCover(BuildContext context, {required double radius}) {
     final theme = Theme.of(context);
     if (item.liveStatus.value != 2) {
@@ -553,11 +550,7 @@ class FollowUserItem extends StatelessWidget {
         Positioned(
           left: 8,
           top: 8,
-          child: _buildInfoChip(
-            context,
-            label: getStatus(item.liveStatus.value),
-            active: item.liveStatus.value == 2,
-          ),
+          child: _buildPlatformBadge(context),
         ),
         if (playing)
           Positioned(
@@ -635,7 +628,10 @@ class FollowUserItem extends StatelessWidget {
     required bool compact,
     required bool vertical,
   }) {
-    final iconSize = compact ? 18.0 : 20.0;
+    final iconSize = compact ? 16.0 : 20.0;
+    final buttonConstraints = compact
+        ? const BoxConstraints.tightFor(width: 22, height: 22)
+        : const BoxConstraints(minWidth: 28, minHeight: 28);
     final children = <Widget>[
       if (onSpecialTap != null)
         IconButton(
@@ -643,7 +639,7 @@ class FollowUserItem extends StatelessWidget {
           iconSize: iconSize,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          constraints: buttonConstraints,
           onPressed: onSpecialTap,
           icon: Icon(
             item.isSpecialFollow ? Icons.star : Icons.star_border,
@@ -661,7 +657,7 @@ class FollowUserItem extends StatelessWidget {
           iconSize: iconSize,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          constraints: buttonConstraints,
           onPressed: onRemove,
           icon: const Icon(Remix.dislike_line),
         ),
