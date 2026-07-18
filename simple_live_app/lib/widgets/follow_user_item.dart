@@ -387,7 +387,7 @@ class FollowUserItem extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyMedium,
                             ),
-                            const Spacer(),
+                            const SizedBox(height: 6),
                             Wrap(
                               crossAxisAlignment: WrapCrossAlignment.center,
                               spacing: 6,

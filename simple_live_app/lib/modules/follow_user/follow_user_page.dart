@@ -372,7 +372,7 @@ class FollowUserPage extends GetView<FollowUserController> {
       final crossAxisCount = mobile
           ? (width >= 720 ? 3 : 2)
           : (width >= 1680 ? 4 : (width >= 1220 ? 3 : 2));
-      final availableWidth = width - 16 - (crossAxisCount - 1) * 12;
+      final availableWidth = width - (crossAxisCount - 1) * 12;
       final cardWidth = availableWidth / crossAxisCount;
       final coverHeight = cardWidth * 9 / 16;
       final cardExtent = showLiveCover
