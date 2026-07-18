@@ -207,69 +207,7 @@ class FollowUserPage extends GetView<FollowUserController> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Obx(
-                () => Visibility(
-                  visible: controller.paginationEnabled.value,
-                  child: Padding(
-                    padding: AppStyle.edgeInsetsH8.copyWith(top: 8),
-                    child: Text(
-                      "当前页刷新只处理当前结果；刷新全部会按当前筛选结果执行完整刷新，并在手动时补齐封面与标题。",
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ),
-              ),
-              Obx(
                 () => _buildRefreshProgress(context),
-              ),
-              Obx(
-                () => _buildActiveFilterBar(context),
-              ),
-              Padding(
-                padding: AppStyle.edgeInsetsH8,
-                child: Obx(
-                  () => Row(
-                    children: [
-                      ChoiceChip(
-                        label: const Text("按状态"),
-                        selected: controller.groupMode.value ==
-                            FollowGroupMode.liveStatus,
-                        onSelected: (_) {
-                          controller.setGroupMode(FollowGroupMode.liveStatus);
-                        },
-                      ),
-                      AppStyle.hGap8,
-                      ChoiceChip(
-                        label: const Text("按平台"),
-                        selected: controller.groupMode.value ==
-                            FollowGroupMode.platform,
-                        onSelected: (_) {
-                          controller.setGroupMode(FollowGroupMode.platform);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: AppStyle.edgeInsetsA8.copyWith(top: 4),
-                child: Obx(
-                  () => SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Wrap(
-                      spacing: 12,
-                      children: controller.groupOptions.map((option) {
-                        return FilterButton(
-                          text: option.title,
-                          selected:
-                              controller.selectedGroupId.value == option.id,
-                          onTap: () {
-                            controller.setGroupOption(option);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
               ),
               Expanded(
                 child: Obx(
@@ -397,46 +335,6 @@ class FollowUserPage extends GetView<FollowUserController> {
     );
   }
 
-  Widget _buildActiveFilterBar(BuildContext context) {
-    final settings = AppSettingsController.instance;
-    final chips = <Widget>[];
-    if (controller.searchKeyword.value.isNotEmpty) {
-      chips.add(
-        InputChip(
-          label: Text("搜索：${controller.searchKeyword.value}"),
-          onDeleted: controller.clearSearchKeyword,
-        ),
-      );
-    }
-    if (settings.followOnlyLive.value) {
-      chips.add(
-        InputChip(
-          label: const Text("仅显示开播"),
-          onDeleted: () => controller.setOnlyLive(false),
-        ),
-      );
-    }
-    if (settings.followRefreshOnEnter.value) {
-      chips.add(
-        InputChip(
-          label: const Text("进页自动刷新"),
-          onDeleted: () => controller.setRefreshOnEnter(false),
-        ),
-      );
-    }
-    if (chips.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: AppStyle.edgeInsetsH8.copyWith(bottom: 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: chips,
-      ),
-    );
-  }
-
   Future<void> _showSearchDialog(BuildContext context) async {
     final textController = TextEditingController(
       text: controller.searchKeyword.value,
@@ -490,85 +388,100 @@ class FollowUserPage extends GetView<FollowUserController> {
   }
 
   void _showDisplaySheet(BuildContext context) {
+    final theme = Theme.of(context);
     Utils.showBottomSheet(
       title: "显示与筛选",
       child: Obx(
         () {
           final settings = AppSettingsController.instance;
-          return SingleChildScrollView(
-            child: Padding(
-              padding: AppStyle.edgeInsetsH8.copyWith(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text("显示样式"),
-                    subtitle: Text("默认关闭封面时使用头像信息布局，开启后显示直播间封面图"),
+          final isStatusMode =
+              controller.groupMode.value == FollowGroupMode.liveStatus;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── 分组方式 ──
+              Padding(
+                padding: AppStyle.edgeInsetsH8.copyWith(top: 8),
+                child: Text("分组方式",
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: AppStyle.edgeInsetsH8,
+                child: SegmentedButton<FollowGroupMode>(
+                  segments: const [
+                    ButtonSegment(
+                        value: FollowGroupMode.liveStatus,
+                        label: Text("按状态"),
+                        icon: Icon(Icons.circle, size: 16)),
+                    ButtonSegment(
+                        value: FollowGroupMode.platform,
+                        label: Text("按平台"),
+                        icon: Icon(Icons.language, size: 16)),
+                  ],
+                  selected: {controller.groupMode.value},
+                  onSelectionChanged: (v) => controller.setGroupMode(v.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor:
+                        theme.colorScheme.primaryContainer,
                   ),
-                  Wrap(
+                ),
+              ),
+              const SizedBox(height: 16),
+              // ── 分组选项 ──
+              Padding(
+                padding: AppStyle.edgeInsetsH8,
+                child: Text(
+                    isStatusMode ? "直播状态" : "直播平台",
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: AppStyle.edgeInsetsH8,
+                child: Obx(
+                  () => Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      _buildStyleChip(
-                          "default", "默认", settings.followDisplayStyle.value),
-                      _buildStyleChip(
-                          "compact", "紧凑", settings.followDisplayStyle.value),
-                      _buildStyleChip(
-                          "card", "卡片", settings.followDisplayStyle.value),
-                    ],
+                    children: controller.groupOptions.map((option) {
+                      return ChoiceChip(
+                        label: Text(option.title),
+                        selected:
+                            controller.selectedGroupId.value == option.id,
+                        selectedColor: theme.colorScheme.primary,
+                        onSelected: (_) {
+                          controller.setGroupOption(option);
+                        },
+                      );
+                    }).toList(),
                   ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text("展示直播封面"),
-                    subtitle: const Text("开启后显示直播间封面图；关闭时只显示主播头像和信息"),
-                    value: settings.followShowLiveCover.value,
-                    onChanged: controller.setShowLiveCover,
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text("仅显示开播"),
-                    subtitle: const Text("在当前平台/状态分组结果上再只保留已开播主播"),
-                    value: settings.followOnlyLive.value,
-                    onChanged: controller.setOnlyLive,
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text("进入关注页后自动刷新"),
-                    subtitle: const Text("先显示本地列表，再异步全量刷新；关注过多时极易触发抖音限制"),
-                    value: settings.followRefreshOnEnter.value,
-                    onChanged: (value) async {
-                      if (value) {
-                        final confirmed = await Utils.showAlertDialog(
-                          "开启后，每次进入关注页都会先显示本地列表，再异步发起一次全量刷新。关注过多时，极其容易触发抖音限制，尤其是抖音关注较多时更明显。",
-                          title: "风险提示",
-                          confirm: "继续开启",
-                        );
-                        if (!confirmed) {
-                          return;
-                        }
-                      }
-                      controller.setRefreshOnEnter(value);
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
+              AppStyle.divider,
+              // ── 自动刷新 ──
+              SwitchListTile(
+                contentPadding: AppStyle.edgeInsetsH8,
+                title: const Text("进入关注页后自动刷新"),
+                value: settings.followRefreshOnEnter.value,
+                onChanged: (value) async {
+                  if (value) {
+                    final confirmed = await Utils.showAlertDialog(
+                      "开启后，每次进入关注页都会先显示本地列表，再异步发起一次全量刷新。关注过多时，极其容易触发抖音限制。",
+                      title: "风险提示",
+                      confirm: "继续开启",
+                    );
+                    if (!confirmed) return;
+                  }
+                  controller.setRefreshOnEnter(value);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
           );
         },
       ),
-    );
-  }
-
-  Widget _buildStyleChip(String value, String label, String currentValue) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: currentValue == value,
-      onSelected: (_) {
-        controller.setDisplayStyle(value);
-      },
     );
   }
 

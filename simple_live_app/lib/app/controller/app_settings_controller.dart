@@ -1953,10 +1953,10 @@ class AppSettingsController extends GetxController {
 
   var followGroupMode = "liveStatus".obs;
   var followSelectedGroupId = "all".obs;
-  var followDisplayStyle = "default".obs;
+  var followDisplayStyle = "card".obs;
   var followOnlyLive = false.obs;
   var followRefreshOnEnter = false.obs;
-  var followShowLiveCover = false.obs;
+  var followShowLiveCover = true.obs;
 
   String _normalizeFollowDisplayStyle(String value) {
     if (followDisplayStyleOptions.contains(value)) {
