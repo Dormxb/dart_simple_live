@@ -1017,6 +1017,9 @@ mixin PlayerGestureControlMixin
     if (lockControlsState.value) {
       return;
     }
+    // 清除可能因手势竞争而残留的亮度/音量提示状态
+    verticalDragging = false;
+    showGestureTip.value = false;
     if (smallWindowState.value) {
       exitSmallWindow();
     } else if (fullScreenState.value) {
@@ -1064,6 +1067,11 @@ mixin PlayerGestureControlMixin
         Platform.isWindows ||
         Platform.isLinux) {
       showGestureTip.value = true;
+      // 兜底：3 秒后自动隐藏，防止手势被取消导致提示常驻
+      hidevolumeTimer?.cancel();
+      hidevolumeTimer = Timer(const Duration(seconds: 3), () {
+        showGestureTip.value = false;
+      });
     }
     if (Platform.isWindows || Platform.isLinux) {
       final currentPlayerVolume = player.state.volume;
@@ -1199,6 +1207,7 @@ mixin PlayerGestureControlMixin
     throttle = null;
     verticalDragging = false;
     leftVerticalDrag = false;
+    hidevolumeTimer?.cancel();
     showGestureTip.value = false;
   }
 }

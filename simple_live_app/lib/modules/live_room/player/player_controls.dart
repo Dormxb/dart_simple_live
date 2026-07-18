@@ -419,6 +419,8 @@ Widget _buildGestureLayer(
       onVerticalDragStart: controller.onVerticalDragStart,
       onVerticalDragUpdate: controller.onVerticalDragUpdate,
       onVerticalDragEnd: controller.onVerticalDragEnd,
+      onVerticalDragCancel: () =>
+          controller.onVerticalDragEnd(DragEndDetails()),
       child: const SizedBox.expand(),
     ),
   );
