@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:web_socket_channel/io.dart';
+
+import 'core_log.dart';
 
 enum SocketStatus { connected, failed, closed }
 
@@ -78,18 +81,36 @@ class WebScoketUtils {
       try {
         webSocket = IOWebSocketChannel.connect(
           wsurl,
-          connectTimeout: Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 15),
           headers: headers,
         );
 
         await webSocket?.ready;
         ready();
         return;
+      } on HandshakeException catch (e, s) {
+        lastError = e;
+        lastStackTrace = s;
+        CoreLog.error("WebSocket TLS handshake failed for $wsurl: $e, retrying with lenient TLS");
+        try {
+          final client = HttpClient()
+            ..badCertificateCallback = (cert, host, port) => true;
+          webSocket = IOWebSocketChannel.connect(
+            wsurl,
+            connectTimeout: const Duration(seconds: 15),
+            headers: headers,
+            customClient: client,
+          );
+          await webSocket?.ready;
+          ready();
+          return;
+        } catch (_) {
+          CoreLog.error("Lenient TLS retry also failed for $wsurl");
+        }
       } catch (e, s) {
         lastError = e;
         lastStackTrace = s;
-        webSocket?.sink.close();
-        webSocket = null;
+        CoreLog.error("WebSocket connect failed for $wsurl: $e");
       }
     }
     onError(lastError ?? "WebSocket connection failed", lastStackTrace);
@@ -160,7 +181,9 @@ class WebScoketUtils {
     status = SocketStatus.closed;
     if (reconnectTime < maxReconnectTime) {
       reconnectTime++;
-      reconnectTimer ??= Timer.periodic(Duration(seconds: 5), (timer) {
+      final delay = Duration(seconds: 3 * (1 << (reconnectTime - 1)));
+      reconnectTimer?.cancel();
+      reconnectTimer = Timer(delay, () {
         connect();
       });
     } else {

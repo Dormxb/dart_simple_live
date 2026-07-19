@@ -74,7 +74,7 @@ class LocalSyncPage extends GetView<LocalSyncController> {
               ),
             ),
             visualDensity: VisualDensity.compact,
-            contentPadding: AppStyle.edgeInsetsH12,
+            contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
             trailing: IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () {

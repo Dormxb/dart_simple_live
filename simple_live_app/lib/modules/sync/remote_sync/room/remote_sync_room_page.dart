@@ -117,7 +117,7 @@ class RemoteSyncRoomPage extends GetView<RemoteSyncRoomController> {
           SettingsCard(
             child: Obx(
               () => ListTile(
-                contentPadding: AppStyle.edgeInsetsL12,
+                contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
                 title: SelectableText(
                   controller.currentRoomId.value,
                   style: Theme.of(context).textTheme.titleLarge,

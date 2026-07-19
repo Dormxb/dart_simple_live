@@ -18,6 +18,14 @@ class DouyuDanmaku implements LiveDanmaku {
   @override
   Function()? onReady;
   String serverUrl = "wss://danmuproxy.douyu.com:8506";
+  static const _backupServers = [
+    "wss://danmuproxy.douyu.com:8506",
+    "wss://danmuproxy.douyu.com:8505",
+    "wss://danmuproxy.douyu.com:8504",
+    "wss://danmuproxy.douyu.com:8503",
+    "wss://danmuproxy.douyu.com:8502",
+    "wss://danmuproxy.douyu.com:8501",
+  ];
 
   WebScoketUtils? webScoketUtils;
 
@@ -25,6 +33,7 @@ class DouyuDanmaku implements LiveDanmaku {
   Future start(dynamic args) async {
     webScoketUtils = WebScoketUtils(
       url: serverUrl,
+      backupUrls: _backupServers,
       heartBeatTime: heartbeatTime,
       onMessage: (e) {
         decodeMessage(e);

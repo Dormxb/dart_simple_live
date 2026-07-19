@@ -38,6 +38,11 @@ class HuyaDanmaku implements LiveDanmaku {
   @override
   Function()? onReady;
   String serverUrl = "wss://cdnws.api.huya.com";
+  static const _backupServers = [
+    "wss://cdnws.api.huya.com",
+    "wss://cdnws-ms.api.huya.com",
+    "wss://wsapi.huya.com",
+  ];
 
   WebScoketUtils? webScoketUtils;
 
@@ -50,6 +55,7 @@ class HuyaDanmaku implements LiveDanmaku {
     danmakuArgs = args as HuyaDanmakuArgs;
     webScoketUtils = WebScoketUtils(
       url: serverUrl,
+      backupUrls: _backupServers,
       heartBeatTime: heartbeatTime,
       onMessage: (e) {
         decodeMessage(e);
