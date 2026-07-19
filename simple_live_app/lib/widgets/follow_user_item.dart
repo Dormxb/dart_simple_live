@@ -354,19 +354,17 @@ class FollowUserItem extends StatelessWidget {
                 child: _buildCover(context, radius: 0),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                 child: Text(
                   _displayRoomTitle(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: theme.textTheme.titleSmall,
                 ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -482,7 +480,7 @@ class FollowUserItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.black.withAlpha(140),
+        color: Colors.black.withAlpha(180),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Image.asset(_site.logo, width: 16, height: 16),

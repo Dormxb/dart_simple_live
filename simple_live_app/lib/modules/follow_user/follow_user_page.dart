@@ -227,7 +227,7 @@ class FollowUserPage extends GetView<FollowUserController> {
                         }
                       },
                       child: PageGridView(
-                        padding: const EdgeInsets.only(bottom: 96.0, left: 8, right: 8),
+                        padding: const EdgeInsets.only(bottom: 96.0, left: 8, right: 8, top: 8),
                         crossAxisSpacing: layout.crossAxisSpacing,
                         mainAxisSpacing: layout.mainAxisSpacing,
                         mainAxisExtent: layout.mainAxisExtent,
@@ -310,19 +310,19 @@ class FollowUserPage extends GetView<FollowUserController> {
       final crossAxisCount = mobile
           ? (width >= 720 ? 3 : 2)
           : (width >= 1680 ? 4 : (width >= 1220 ? 3 : 2));
-      final availableWidth = width - 16 - (crossAxisCount - 1) * 12;
+      final availableWidth = width - 16 - (crossAxisCount - 1) * 16;
       final cardWidth = availableWidth / crossAxisCount;
       final coverHeight = cardWidth * 9 / 16;
       final cardExtent = showLiveCover
-          ? coverHeight + 52
+          ? coverHeight + 56
           : (mobile ? 178.0 : 190.0);
       return _FollowLayoutSpec(
         itemStyle: FollowUserItemStyle.card,
         crossAxisCount: crossAxisCount,
         mainAxisExtent: cardExtent,
         childAspectRatio: 0.9,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       );
     }
     return _FollowLayoutSpec(
