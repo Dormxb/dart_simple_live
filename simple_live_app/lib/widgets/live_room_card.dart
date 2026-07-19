@@ -18,7 +18,7 @@ class LiveRoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShadowCard(
-      radius: 8,
+      radius: 16,
       onTap: onTap ??
           () {
             AppNavigator.toLiveRoomDetail(site: site, roomId: item.roomId);
@@ -30,8 +30,8 @@ class LiveRoomCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
                 child: NetImage(
                   item.cover,

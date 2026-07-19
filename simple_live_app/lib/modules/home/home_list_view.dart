@@ -22,8 +22,8 @@ class HomeListView extends StatelessWidget {
         pageController: controller,
         padding: AppStyle.edgeInsetsA12,
         firstRefresh: true,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
         crossAxisCount: c,
         itemBuilder: (_, i) {
           var item = controller.list[i];
