@@ -353,9 +353,20 @@ class FollowUserItem extends StatelessWidget {
                 aspectRatio: 16 / 9,
                 child: _buildCover(context, radius: 0),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+                child: Text(
+                  _displayRoomTitle(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 3, 10, 3),
+                  padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -375,12 +386,6 @@ class FollowUserItem extends StatelessWidget {
                             color: Colors.grey.shade600,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildActionArea(
-                        context,
-                        compact: true,
-                        vertical: true,
                       ),
                     ],
                   ),
@@ -475,26 +480,12 @@ class FollowUserItem extends StatelessWidget {
 
   Widget _buildPlatformBadge(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.black.withAlpha(140),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(_site.logo, width: 14, height: 14),
-          const SizedBox(width: 4),
-          Text(
-            _site.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+      child: Image.asset(_site.logo, width: 16, height: 16),
     );
   }
 
@@ -551,35 +542,6 @@ class FollowUserItem extends StatelessWidget {
               active: true,
             ),
           ),
-        Positioned(
-          left: 8,
-          right: 8,
-          bottom: 8,
-          child: Row(
-            children: [
-              _buildStatusDot(),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _displayRoomTitle(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 8,
-                        color: Colors.black54,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
