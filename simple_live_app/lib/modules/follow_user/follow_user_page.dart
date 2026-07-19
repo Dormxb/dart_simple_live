@@ -23,8 +23,42 @@ class FollowUserPage extends GetView<FollowUserController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("关注用户"),
+        title: Obx(() => Text(controller.batchManageMode.value
+            ? "已选 ${controller.selectedBatchKeys.length} 项"
+            : "关注用户")),
         actions: [
+          Obx(
+            () => controller.batchManageMode.value
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () =>
+                            controller.batchSetSpecialFollow(true),
+                        icon: const Icon(Icons.star),
+                        label: const Text("特别关注"),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            controller.batchSetSpecialFollow(false),
+                        icon: const Icon(Icons.star_border),
+                        label: const Text("取消特别关注"),
+                      ),
+                      IconButton(
+                        tooltip: "取消",
+                        onPressed: controller.toggleBatchManageMode,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+          IconButton(
+            tooltip: "批量管理",
+            onPressed: controller.toggleBatchManageMode,
+            icon: const Icon(Icons.checklist),
+          ),
           IconButton(
             tooltip: "搜索主播",
             onPressed: () => _showSearchDialog(context),
@@ -182,6 +216,9 @@ class FollowUserPage extends GetView<FollowUserController> {
               }
             },
           ),
+                  ],
+                ),
+              ),
         ],
         leading: Obx(
           () => FollowService.instance.updating.value
@@ -241,11 +278,17 @@ class FollowUserPage extends GetView<FollowUserController> {
                           final item = controller.list[i];
                           final isCurrent = "${item.siteId}_${item.roomId}" ==
                               CurrentRoomService.instance.currentKey;
-                          return FollowUserItem(
-                            item: item,
-                            style: layout.itemStyle,
-                            showLiveCover: AppSettingsController
-                                .instance.followShowLiveCover.value,
+                          return Obx(
+                            () => FollowUserItem(
+                              item: item,
+                              style: layout.itemStyle,
+                              showLiveCover: AppSettingsController
+                                  .instance.followShowLiveCover.value,
+                              batchMode: controller.batchManageMode.value,
+                              batchSelected: controller.selectedBatchKeys
+                                  .contains(item.id),
+                              onBatchTap: () =>
+                                  controller.toggleBatchItem(item),
                             onSpecialTap: () {
                               controller.toggleSpecialFollow(item);
                             },
@@ -253,6 +296,10 @@ class FollowUserPage extends GetView<FollowUserController> {
                               controller.removeItem(item);
                             },
                             onTap: () {
+                              if (controller.batchManageMode.value) {
+                                controller.toggleBatchItem(item);
+                                return;
+                              }
                               if (PlatformUtils.supportsInlineMultiRoom &&
                                   controller.multiSelectMode.value) {
                                 controller.toggleMultiRoomItem(item);
@@ -265,8 +312,9 @@ class FollowUserPage extends GetView<FollowUserController> {
                             },
                             playing: controller.isSelectedForMultiRoom(item) ||
                                 isCurrent,
-                          );
-                        },
+                          ),
+                        );
+                      },
                       ),
                     );
                   },

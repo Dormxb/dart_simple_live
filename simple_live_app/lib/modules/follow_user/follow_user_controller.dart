@@ -50,6 +50,8 @@ class FollowUserController extends BasePageController<FollowUser> {
   var searchKeyword = "".obs;
   var multiSelectMode = false.obs;
   RxSet<String> selectedMultiRoomKeys = <String>{}.obs;
+  var batchManageMode = false.obs;
+  RxSet<String> selectedBatchKeys = <String>{}.obs;
   var currentDisplayPage = 1.obs;
   var totalDisplayPages = 1.obs;
   var paginationEnabled = false.obs;
@@ -461,6 +463,32 @@ class FollowUserController extends BasePageController<FollowUser> {
     if (!multiSelectMode.value) {
       selectedMultiRoomKeys.clear();
     }
+  }
+
+  void toggleBatchManageMode() {
+    batchManageMode.value = !batchManageMode.value;
+    if (!batchManageMode.value) {
+      selectedBatchKeys.clear();
+    }
+  }
+
+  void toggleBatchItem(FollowUser item) {
+    final key = item.id;
+    if (selectedBatchKeys.contains(key)) {
+      selectedBatchKeys.remove(key);
+    } else {
+      selectedBatchKeys.add(key);
+    }
+  }
+
+  void batchSetSpecialFollow(bool value) {
+    for (final id in selectedBatchKeys) {
+      final item = FollowService.instance.followList.firstWhereOrNull((e) => e.id == id);
+      if (item != null) {
+        item.isSpecialFollow = value;
+      }
+    }
+    toggleBatchManageMode();
   }
 
   void toggleMultiRoomItem(FollowUser item) {

@@ -207,13 +207,13 @@ class FollowService extends GetxService {
     if (manual > 0) {
       return manual.clamp(1, count).toInt();
     }
-    var concurrency = 2;
-    if (count <= 50) {
+    var concurrency = 4;
+    if (count <= 30) {
       concurrency = count < 2 ? count : 2;
-    } else if (count <= 200) {
-      concurrency = 3;
+    } else if (count <= 120) {
+      concurrency = 5;
     } else {
-      concurrency = 4;
+      concurrency = 6;
     }
     return concurrency.clamp(1, count).toInt();
   }
