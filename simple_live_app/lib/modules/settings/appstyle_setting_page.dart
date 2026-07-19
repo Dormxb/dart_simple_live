@@ -40,7 +40,7 @@ class AppstyleSettingPage extends GetView<AppSettingsController> {
                       ),
                       visualDensity: VisualDensity.compact,
                       value: 0,
-                      contentPadding: AppStyle.edgeInsetsH12,
+                      contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
                     ),
                     RadioListTile<int>(
                       title: Text(
@@ -48,7 +48,7 @@ class AppstyleSettingPage extends GetView<AppSettingsController> {
                       ),
                       visualDensity: VisualDensity.compact,
                       value: 1,
-                      contentPadding: AppStyle.edgeInsetsH12,
+                      contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
                     ),
                     RadioListTile<int>(
                       title: Text(
@@ -56,7 +56,7 @@ class AppstyleSettingPage extends GetView<AppSettingsController> {
                       ),
                       visualDensity: VisualDensity.compact,
                       value: 2,
-                      contentPadding: AppStyle.edgeInsetsH12,
+                      contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
                     ),
                   ],
                 ),

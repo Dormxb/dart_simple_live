@@ -8,18 +8,16 @@ class SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Theme.of(context).brightness == Brightness.dark
-          ? Colors.grey.withAlpha(50)
-          : Colors.white70,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(
-        borderRadius: AppStyle.radius8,
+        borderRadius: AppStyle.radius12,
         side: BorderSide(
           color: Colors.grey.withAlpha(25),
         ),
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: AppStyle.radius8,
+          borderRadius: AppStyle.radius12,
         ),
         child: child,
       ),

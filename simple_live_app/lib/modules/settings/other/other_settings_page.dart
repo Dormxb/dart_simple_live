@@ -239,7 +239,7 @@ class OtherSettingsPage extends GetView<OtherSettingsController> {
             ),
           ),
           ListTile(
-            contentPadding: AppStyle.edgeInsetsL12,
+            contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
             visualDensity: VisualDensity.compact,
             title: Text(
               "日志列表",
@@ -264,7 +264,7 @@ class OtherSettingsPage extends GetView<OtherSettingsController> {
                     var item = controller.logFiles[index];
                     return ListTile(
                       visualDensity: VisualDensity.compact,
-                      contentPadding: AppStyle.edgeInsetsL12.copyWith(right: 4),
+                      contentPadding: const EdgeInsetsDirectional.only(start: 16, end: 24),
                       title: Text(item.name),
                       subtitle: Text(Utils.parseFileSize(item.size)),
                       trailing: Row(
