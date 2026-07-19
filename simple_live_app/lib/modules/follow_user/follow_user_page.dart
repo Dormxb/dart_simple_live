@@ -284,7 +284,6 @@ class FollowUserPage extends GetView<FollowUserController> {
                               style: layout.itemStyle,
                               showLiveCover: AppSettingsController
                                   .instance.followShowLiveCover.value,
-                              batchMode: controller.batchManageMode.value,
                               batchSelected: controller.selectedBatchKeys
                                   .contains(item.id),
                               onBatchTap: () =>

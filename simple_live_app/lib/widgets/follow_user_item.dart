@@ -24,7 +24,6 @@ class FollowUserItem extends StatelessWidget {
   final bool showSpecialMark;
   final bool showLiveCover;
   final FollowUserItemStyle style;
-  final bool batchMode;
   final bool batchSelected;
   final Function()? onBatchTap;
 
@@ -38,7 +37,6 @@ class FollowUserItem extends StatelessWidget {
     this.showSpecialMark = false,
     this.showLiveCover = false,
     this.style = FollowUserItemStyle.defaultList,
-    this.batchMode = false,
     this.batchSelected = false,
     this.onBatchTap,
     super.key,
@@ -47,39 +45,14 @@ class FollowUserItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      Widget card;
       switch (style) {
         case FollowUserItemStyle.compactList:
-          card = _buildListCard(context, compact: true);
-          break;
+          return _buildListCard(context, compact: true);
         case FollowUserItemStyle.card:
-          card = _buildPreviewCard(context);
-          break;
+          return _buildPreviewCard(context);
         case FollowUserItemStyle.defaultList:
-          card = _buildListCard(context, compact: false);
-          break;
+          return _buildListCard(context, compact: false);
       }
-      if (!batchMode) return card;
-      return Stack(
-        children: [
-          Opacity(
-            opacity: 0.85,
-            child: card,
-          ),
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Icon(
-              batchSelected
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-              color: batchSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.white70,
-            ),
-          ),
-        ],
-      );
     });
   }
 
@@ -366,10 +339,10 @@ class FollowUserItem extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: BorderSide(
-          color: playing
+          color: batchSelected || playing
               ? theme.colorScheme.primary.withAlpha(180)
               : Colors.black.withAlpha(24),
-          width: playing ? 1.4 : 0.8,
+          width: batchSelected || playing ? 1.4 : 0.8,
         ),
       ),
       clipBehavior: Clip.antiAlias,
